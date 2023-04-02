@@ -114,7 +114,7 @@ impl std::fmt::Display for RollResults {
             .rolls
             .iter()
             .map(ToString::to_string)
-            .fold(String::new(), |a, b| format!("{}, {}", a, b));
+            .reduce(|a, b| format!("{}+{}", a, b)).expect("to not be empty");
 
         writeln!(f, "Roll: ({}){}", results, modifier_text)?;
 
