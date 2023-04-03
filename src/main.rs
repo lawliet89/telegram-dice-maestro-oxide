@@ -133,7 +133,7 @@ fn roll(number: u32, sides: u32, modifier: Option<i32>) -> RollResults {
 
 fn parse_roll(input: String) -> Result<(u32, u32, Option<i32>), ParseRollError> {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"^([0-9]+)(d|D)([0-9]+)([+-][0-9]+)?$").unwrap();
+        static ref RE: Regex = Regex::new(r"^([0-9]{1,4})(d|D)([0-9]{1,4})([+-][0-9]{1,4})?$").unwrap();
     }
     let stripped: String = input.chars().filter(|c| !c.is_whitespace()).collect();
     let captures = RE
