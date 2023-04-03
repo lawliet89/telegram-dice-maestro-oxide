@@ -3,10 +3,11 @@ use clap::Parser;
 use lazy_static::lazy_static;
 use rand::distributions::{Distribution, Uniform};
 use regex::Regex;
-use teloxide::{
-    prelude::*,
-    utils::command::{BotCommands, ParseError},
-};
+use teloxide::adaptors::{CacheMe, DefaultParseMode, Throttle};
+use teloxide::prelude::*;
+use teloxide::requests::RequesterExt;
+use teloxide::types::ParseMode;
+use teloxide::utils::command::{BotCommands, ParseError};
 use thiserror::Error;
 
 /// Telegram bot to roll a dice!
@@ -97,16 +98,16 @@ impl std::fmt::Display for RollResults {
             None => "".to_string(),
             Some(number) => {
                 if number > 0 {
-                    format!("+{}", number)
+                    format!(" + {}", number)
                 } else {
-                    format!("{}", number)
+                    format!(" - {}", number*-1)
                 }
             }
         };
 
         writeln!(
             f,
-            "Parameters: {}d{}{}",
+            "Parameters: {} d {}{}",
             self.number, self.sides, modifier_text
         )?;
 
@@ -114,7 +115,8 @@ impl std::fmt::Display for RollResults {
             .rolls
             .iter()
             .map(ToString::to_string)
-            .reduce(|a, b| format!("{}+{}", a, b)).expect("to not be empty");
+            .reduce(|a, b| format!("{} + {}", a, b))
+            .expect("to not be empty");
 
         if results.len() > 4000 {
             results.truncate(4000);
@@ -130,7 +132,7 @@ impl std::fmt::Display for RollResults {
         if let Some(modifier) = self.modifier {
             total = total + modifier as i64
         }
-        write!(f, "Your final roll is: 🎲 {} 🎲", total)
+        write!(f, "Your final roll is: 🎲 <b>{}</b> 🎲", total)
     }
 }
 
@@ -140,17 +142,16 @@ fn roll(number: u32, sides: u32, modifier: Option<i32>) -> RollResults {
 
 fn parse_roll(input: String) -> Result<(u32, u32, Option<i32>), ParseRollError> {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"^([0-9]{1,4})(d|D)([0-9]{1,4})([+-][0-9]{1,4})?$").unwrap();
+        static ref RE: Regex =
+            Regex::new(r"^([0-9]{1,4})(d|D)([0-9]{1,4})([+-][0-9]{1,4})?$").unwrap();
     }
     log::trace!("Cleaning raw input {}", input);
     let stripped: String = input.chars().filter(|c| !c.is_whitespace()).collect();
     log::info!("Parsing input {}", input);
-    let captures = RE
-        .captures(&stripped)
-        .ok_or_else(|| {
-            log::warn!("Regex match failure for {}", input);
-            ParseRollError::InvalidFormat(stripped.clone())
-        })?;
+    let captures = RE.captures(&stripped).ok_or_else(|| {
+        log::warn!("Regex match failure for {}", input);
+        ParseRollError::InvalidFormat(stripped.clone())
+    })?;
 
     // 1d20+4
     // Some(Captures({
@@ -183,7 +184,9 @@ fn parse_roll(input: String) -> Result<(u32, u32, Option<i32>), ParseRollError> 
     Ok((number, sides, modifier))
 }
 
-async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
+type AdaptedBot = DefaultParseMode<Throttle<CacheMe<Bot>>>;
+
+async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<()> {
     match cmd {
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
@@ -192,7 +195,9 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
         Command::Roll(number, sides, modifier) => {
             let results = roll(number, sides, modifier);
             log::debug!("Dice roll: {:?}", results);
-            bot.send_message(msg.chat.id, results.to_string()).await?;
+            bot.send_message(msg.chat.id, results.to_string())
+                .reply_to_message_id(msg.id)
+                .await?;
         }
     };
 
@@ -205,7 +210,10 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     log::info!("Reading token...");
     let token = get_token(args)?;
-    let bot = Bot::new(token);
+    let bot = Bot::new(token)
+        .cache_me()
+        .throttle(Default::default())
+        .parse_mode(ParseMode::Html);
 
     log::info!("Starting dicer roller bot...");
 
