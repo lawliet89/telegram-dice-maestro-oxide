@@ -110,12 +110,19 @@ impl std::fmt::Display for RollResults {
             self.number, self.sides, modifier_text
         )?;
 
-        let results = self
+        let mut results = self
             .rolls
             .iter()
             .map(ToString::to_string)
             .reduce(|a, b| format!("{}+{}", a, b)).expect("to not be empty");
 
+        if results.len() > 4000 {
+            results.truncate(4000);
+            results.push_str("...");
+        }
+
+        // https://stackoverflow.com/questions/68768069/telegram-error-badrequest-entities-too-long-error-when-trying-to-send-long-ma
+        // tldr; limit is 9500
         writeln!(f, "Roll: ({}){}", results, modifier_text)?;
 
         let total = self.rolls.iter().fold(0, |a, b| a + b);
@@ -135,10 +142,16 @@ fn parse_roll(input: String) -> Result<(u32, u32, Option<i32>), ParseRollError> 
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^([0-9]{1,4})(d|D)([0-9]{1,4})([+-][0-9]{1,4})?$").unwrap();
     }
+    log::trace!("Cleaning raw input {}", input);
     let stripped: String = input.chars().filter(|c| !c.is_whitespace()).collect();
+    log::info!("Parsing input {}", input);
     let captures = RE
         .captures(&stripped)
-        .ok_or_else(|| ParseRollError::InvalidFormat(stripped.clone()))?;
+        .ok_or_else(|| {
+            log::warn!("Regex match failure for {}", input);
+            ParseRollError::InvalidFormat(stripped.clone())
+        })?;
+
     // 1d20+4
     // Some(Captures({
     //     0: Some("1d20+4"),
