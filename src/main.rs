@@ -247,6 +247,7 @@ async fn main() -> anyhow::Result<()> {
         .parse_mode(ParseMode::Html);
 
     log::info!("Starting dicer roller bot...");
+    log::info!("Running as: {:?}", bot.get_me().await?);
 
     Command::repl(bot, answer).await;
     Ok(())
