@@ -88,8 +88,9 @@ impl FromStr for RollSettings {
 
 #[derive(Debug)]
 struct RollResults<'a> {
-    rolls: Vec<u32>,
-    settings: &'a RollSettings,
+    pub rolls: Vec<u32>,
+    pub total: i64,
+    pub settings: &'a RollSettings,
 }
 
 impl<'a> RollResults<'a> {
@@ -97,11 +98,21 @@ impl<'a> RollResults<'a> {
         let mut rng = rand::thread_rng();
         let die = Uniform::from(1..=settings.sides);
 
-        let rolls = (1..=settings.number)
+        let rolls: Vec<u32> = (1..=settings.number)
             .map(|_| die.sample(&mut rng))
             .collect();
 
-        RollResults { settings, rolls }
+        let total = rolls.iter().fold(0, |a, b| a + b);
+        let mut total: i64 = total.into();
+        if let Some(modifier) = settings.modifier {
+            total = total + modifier as i64
+        }
+
+        RollResults {
+            settings,
+            rolls,
+            total,
+        }
     }
 }
 
@@ -140,12 +151,7 @@ impl<'a> std::fmt::Display for RollResults<'a> {
         // tldr; limit is 9500
         writeln!(f, "Roll: ({}){}", results, modifier_text)?;
 
-        let total = self.rolls.iter().fold(0, |a, b| a + b);
-        let mut total: i64 = total.into();
-        if let Some(modifier) = self.settings.modifier {
-            total = total + modifier as i64
-        }
-        write!(f, "Your final roll is: 🎲 <b>{}</b> 🎲", total)
+        write!(f, "Your final roll is: 🎲 <b>{}</b> 🎲", self.total)
     }
 }
 
