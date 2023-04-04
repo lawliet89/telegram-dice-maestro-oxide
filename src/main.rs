@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::anyhow;
 use clap::Parser;
 use lazy_static::lazy_static;
@@ -7,7 +9,7 @@ use teloxide::adaptors::{CacheMe, DefaultParseMode, Throttle};
 use teloxide::prelude::*;
 use teloxide::requests::RequesterExt;
 use teloxide::types::ParseMode;
-use teloxide::utils::command::{BotCommands, ParseError};
+use teloxide::utils::command::{BotCommands};
 use thiserror::Error;
 
 /// Telegram bot to roll a dice!
@@ -36,8 +38,8 @@ struct Args {
 enum Command {
     #[command(description = "Display help text")]
     Help,
-    #[command(description = "Roll a dice.", parse_with = crate::parse_roll)]
-    Roll(u32, u32, Option<i32>),
+    #[command(description = "Roll a dice.")]
+    Roll(String),
 }
 
 fn get_token(args: Args) -> anyhow::Result<String> {
@@ -58,57 +60,68 @@ enum ParseRollError {
     CannotBeZero(String),
 }
 
-impl From<ParseRollError> for ParseError {
-    fn from(parse_err: ParseRollError) -> Self {
-        use ParseRollError::*;
+#[derive(Clone, Debug, PartialEq)]
+struct RollSettings {
+    pub number: u32,
+    pub sides: u32,
+    pub modifier: Option<i32>,
+}
 
-        match parse_err {
-            e @ InvalidFormat(_) | e @ CannotBeZero(_) => Self::IncorrectFormat(Box::new(e)),
-        }
+impl RollSettings {
+    fn roll(&self) -> RollResults {
+        RollResults::new(self)
+    }
+}
+
+impl FromStr for RollSettings {
+    type Err = ParseRollError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let (number, sides, modifier) = parse_roll(input)?;
+        Ok(Self {
+            number,
+            sides,
+            modifier,
+        })
     }
 }
 
 #[derive(Debug)]
-struct RollResults {
-    number: u32,
-    sides: u32,
+struct RollResults<'a> {
     rolls: Vec<u32>,
-    modifier: Option<i32>,
+    settings: &'a RollSettings,
 }
 
-impl RollResults {
-    fn new(number: u32, sides: u32, modifier: Option<i32>) -> Self {
+impl<'a> RollResults<'a> {
+    fn new(settings: &'a RollSettings) -> Self {
         let mut rng = rand::thread_rng();
-        let die = Uniform::from(1..=sides);
+        let die = Uniform::from(1..=settings.sides);
 
-        let results = (1..=number).map(|_| die.sample(&mut rng)).collect();
+        let rolls = (1..=settings.number)
+            .map(|_| die.sample(&mut rng))
+            .collect();
 
-        RollResults {
-            number,
-            sides,
-            rolls: results,
-            modifier,
-        }
+        RollResults { settings, rolls }
     }
 }
 
-impl std::fmt::Display for RollResults {
+impl<'a> std::fmt::Display for RollResults<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let modifier_text = match self.modifier {
+        let modifier_text = match self.settings.modifier {
             None => "".to_string(),
             Some(number) => {
                 if number > 0 {
                     format!(" + {}", number)
                 } else {
-                    format!(" - {}", number*-1)
+                    format!(" - {}", number * -1)
                 }
             }
         };
 
         writeln!(
             f,
-            "Parameters: {} d {}{}",
-            self.number, self.sides, modifier_text
+            "Parameters: {}d{}{}",
+            self.settings.number, self.settings.sides, modifier_text
         )?;
 
         let mut results = self
@@ -129,27 +142,26 @@ impl std::fmt::Display for RollResults {
 
         let total = self.rolls.iter().fold(0, |a, b| a + b);
         let mut total: i64 = total.into();
-        if let Some(modifier) = self.modifier {
+        if let Some(modifier) = self.settings.modifier {
             total = total + modifier as i64
         }
         write!(f, "Your final roll is: 🎲 <b>{}</b> 🎲", total)
     }
 }
 
-fn roll(number: u32, sides: u32, modifier: Option<i32>) -> RollResults {
-    RollResults::new(number, sides, modifier)
-}
-
-fn parse_roll(input: String) -> Result<(u32, u32, Option<i32>), ParseRollError> {
+fn parse_roll<S>(input: S) -> Result<(u32, u32, Option<i32>), ParseRollError>
+where
+    S: AsRef<str> + std::fmt::Display + std::ops::Deref<Target = str>,
+{
     lazy_static! {
         static ref RE: Regex =
             Regex::new(r"^([0-9]{1,4})(d|D)([0-9]{1,4})([+-][0-9]{1,4})?$").unwrap();
     }
-    log::trace!("Cleaning raw input {}", input);
+    log::trace!("Cleaning raw input {}", &input);
     let stripped: String = input.chars().filter(|c| !c.is_whitespace()).collect();
-    log::info!("Parsing input {}", input);
+    log::info!("Parsing input {}", &input);
     let captures = RE.captures(&stripped).ok_or_else(|| {
-        log::warn!("Regex match failure for {}", input);
+        log::warn!("Regex match failure for {}", &input);
         ParseRollError::InvalidFormat(stripped.clone())
     })?;
 
@@ -192,12 +204,31 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?;
         }
-        Command::Roll(number, sides, modifier) => {
-            let results = roll(number, sides, modifier);
-            log::debug!("Dice roll: {:?}", results);
-            bot.send_message(msg.chat.id, results.to_string())
-                .reply_to_message_id(msg.id)
-                .await?;
+        Command::Roll(input) => {
+            if input == "" {
+                bot.send_dice(msg.chat.id)
+                    .reply_to_message_id(msg.id)
+                    .await?;
+            } else {
+                let settings = RollSettings::from_str(&input);
+                match settings {
+                    Ok(settings) => {
+                        let results = settings.roll();
+                        log::debug!("Dice roll: {:?}", results);
+                        bot.send_message(msg.chat.id, results.to_string())
+                            .reply_to_message_id(msg.id)
+                            .await?;
+                    }
+                    Err(e) => {
+                        bot.send_message(
+                            msg.chat.id,
+                            format!("💣 Try again! 💣 <code>{}</code>", e),
+                        )
+                        .reply_to_message_id(msg.id)
+                        .await?;
+                    }
+                }
+            }
         }
     };
 
@@ -206,7 +237,7 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    pretty_env_logger::init();
+    pretty_env_logger::formatted_timed_builder().filter_level(log::LevelFilter::Info).init();
     let args = Args::parse();
     log::info!("Reading token...");
     let token = get_token(args)?;
