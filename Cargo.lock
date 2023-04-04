@@ -1274,7 +1274,10 @@ dependencies = [
  "pretty_env_logger",
  "rand",
  "regex",
+ "serde",
+ "serde_json",
  "teloxide",
+ "tempfile",
  "thiserror",
  "tokio",
 ]
