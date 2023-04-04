@@ -12,7 +12,6 @@ use teloxide::prelude::*;
 use teloxide::requests::RequesterExt;
 use teloxide::types::{InputFile, ParseMode};
 use teloxide::utils::command::BotCommands;
-use tempfile::NamedTempFile;
 use thiserror::Error;
 
 /// Telegram bot to roll a dice!
@@ -246,29 +245,36 @@ async fn handle_roll(
                 Ok(settings) => {
                     let results = settings.roll();
                     log::debug!("Dice roll: {:?}", results);
-                    bot.send_message(msg.chat.id, results.to_string())
+                    let roll_msg = bot.send_message(msg.chat.id, results.to_string())
                         .reply_to_message_id(msg.id)
                         .await?;
                     if send_json {
                         match serde_json::to_string_pretty(&results) {
                             Ok(output_json) => {
                                 // https://github.com/teloxide/teloxide/discussions/869
-                                // bot.send_document(
-                                //     msg.chat.id,
-                                //     InputFile::memory(output_json.to_string().as_bytes()).file_name("roll.json"),
-                                // )
-                                // .reply_to_message_id(msg.id)
-                                // .await?;
-
-                                let mut temp_json = NamedTempFile::new()?;
-                                temp_json.write_all(output_json.as_bytes())?;
-                                temp_json.flush()?;
+                                #[cfg(not(feature = "tempfile-send"))]
+                                {
                                 bot.send_document(
                                     msg.chat.id,
-                                    InputFile::file(temp_json.path()).file_name("roll.json"),
+                                    InputFile::memory(output_json.into_bytes()).file_name("roll.json"),
                                 )
-                                .reply_to_message_id(msg.id)
+                                .reply_to_message_id(roll_msg.id)
                                 .await?;
+                                }
+                                #[cfg(feature = "tempfile-send")]
+                                {
+                                    use tempfile::NamedTempFile;
+
+                                    let mut temp_json = NamedTempFile::new()?;
+                                    temp_json.write_all(output_json.as_bytes())?;
+                                    temp_json.flush()?;
+                                    bot.send_document(
+                                        msg.chat.id,
+                                        InputFile::file(temp_json.path()).file_name("roll.json"),
+                                    )
+                                    .reply_to_message_id(roll_msg.id)
+                                    .await?;
+                                }
                             }
                             Err(e) => {
                                 bot.send_message(
