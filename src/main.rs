@@ -9,7 +9,7 @@ use teloxide::adaptors::{CacheMe, DefaultParseMode, Throttle};
 use teloxide::prelude::*;
 use teloxide::requests::RequesterExt;
 use teloxide::types::ParseMode;
-use teloxide::utils::command::{BotCommands};
+use teloxide::utils::command::BotCommands;
 use thiserror::Error;
 
 /// Telegram bot to roll a dice!
@@ -204,12 +204,21 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?;
         }
-        Command::Roll(input) => {
-            if input == "" {
+        Command::Roll(input) => match input.as_str() {
+            "" => {
                 bot.send_dice(msg.chat.id)
                     .reply_to_message_id(msg.id)
                     .await?;
-            } else {
+            }
+            "eye" | "eyes" => {
+                bot.send_message(
+                            msg.chat.id,
+                            "As a non-language model, I just spit out what was written in my code and I can never vary.",
+                        )
+                        .reply_to_message_id(msg.id)
+                        .await?;
+            }
+            input @ _ => {
                 let settings = RollSettings::from_str(&input);
                 match settings {
                     Ok(settings) => {
@@ -229,7 +238,7 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
                     }
                 }
             }
-        }
+        },
     };
 
     Ok(())
@@ -237,7 +246,9 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    pretty_env_logger::formatted_timed_builder().filter_level(log::LevelFilter::Info).init();
+    pretty_env_logger::formatted_timed_builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
     let args = Args::parse();
     log::info!("Reading token...");
     let token = get_token(args)?;
