@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::anyhow;
 use clap::Parser;
 use lazy_static::lazy_static;
@@ -28,7 +30,7 @@ struct Args {
     api_key: Option<String>,
 }
 
-#[derive(BotCommands, Clone, PartialEq)]
+#[derive(BotCommands, Clone)]
 #[command(
     rename_rule = "snake_case",
     description = "These commands are supported:"
@@ -36,8 +38,12 @@ struct Args {
 enum Command {
     #[command(description = "Display help text")]
     Help,
-    #[command(description = "Roll a dice.", parse_with = crate::parse_roll)]
-    Roll(u32, u32, Option<i32>),
+    #[command(description = "Roll a dice.")]
+    Roll(String),
+}
+
+fn identity_parser(input: String) -> Result<String, ParseError> {
+    Ok(input)
 }
 
 fn get_token(args: Args) -> anyhow::Result<String> {
@@ -68,39 +74,99 @@ impl From<ParseRollError> for ParseError {
     }
 }
 
-#[derive(Debug)]
-struct RollResults {
-    number: u32,
-    sides: u32,
-    rolls: Vec<u32>,
-    modifier: Option<i32>,
+#[derive(Clone, Debug, PartialEq)]
+struct RollSettings {
+    pub number: u32,
+    pub sides: u32,
+    pub modifier: Option<i32>,
 }
 
-impl RollResults {
-    fn new(number: u32, sides: u32, modifier: Option<i32>) -> Self {
-        let mut rng = rand::thread_rng();
-        let die = Uniform::from(1..=sides);
-
-        let results = (1..=number).map(|_| die.sample(&mut rng)).collect();
-
-        RollResults {
-            number,
-            sides,
-            rolls: results,
-            modifier,
-        }
+impl RollSettings {
+    fn roll(&self) -> RollResults {
+        RollResults::new(self)
     }
 }
 
-impl std::fmt::Display for RollResults {
+impl FromStr for RollSettings {
+    type Err = ParseRollError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        lazy_static! {
+            static ref RE: Regex =
+                Regex::new(r"^([0-9]{1,4})(d|D)([0-9]{1,4})([+-][0-9]{1,4})?$").unwrap();
+        }
+        log::trace!("Cleaning raw input {}", input);
+        let stripped: String = input.chars().filter(|c| !c.is_whitespace()).collect();
+        log::info!("Parsing input {}", input);
+        let captures = RE.captures(&stripped).ok_or_else(|| {
+            log::warn!("Regex match failure for {}", input);
+            ParseRollError::InvalidFormat(stripped.clone())
+        })?;
+
+        // 1d20+4
+        // Some(Captures({
+        //     0: Some("1d20+4"),
+        //     1: Some("1"),
+        //     2: Some("d"),
+        //     3: Some("20"),
+        //     4: Some("+4"),
+        // })),
+        let number = captures
+            .get(1)
+            .expect("to exist")
+            .as_str()
+            .parse::<u32>()
+            .expect("to be integer");
+        let sides = captures
+            .get(3)
+            .expect("to exist")
+            .as_str()
+            .parse::<u32>()
+            .expect("to be integer");
+        let modifier = captures
+            .get(4)
+            .map(|res| res.as_str().parse::<i32>().expect("to be integer"));
+
+        if number == 0 || sides == 0 {
+            Err(ParseRollError::CannotBeZero(stripped))?
+        }
+
+        Ok(Self {
+            number,
+            sides,
+            modifier,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct RollResults<'a> {
+    rolls: Vec<u32>,
+    settings: &'a RollSettings,
+}
+
+impl<'a> RollResults<'a> {
+    fn new(settings: &RollSettings) -> Self {
+        let mut rng = rand::thread_rng();
+        let die = Uniform::from(1..=settings.sides);
+
+        let rolls = (1..=settings.number)
+            .map(|_| die.sample(&mut rng))
+            .collect();
+
+        RollResults { settings, rolls }
+    }
+}
+
+impl<'a> std::fmt::Display for RollResults<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let modifier_text = match self.modifier {
+        let modifier_text = match self.settings.modifier {
             None => "".to_string(),
             Some(number) => {
                 if number > 0 {
                     format!(" + {}", number)
                 } else {
-                    format!(" - {}", number*-1)
+                    format!(" - {}", number * -1)
                 }
             }
         };
@@ -108,7 +174,7 @@ impl std::fmt::Display for RollResults {
         writeln!(
             f,
             "Parameters: {} d {}{}",
-            self.number, self.sides, modifier_text
+            self.settings.number, self.settings.sides, modifier_text
         )?;
 
         let mut results = self
@@ -129,75 +195,45 @@ impl std::fmt::Display for RollResults {
 
         let total = self.rolls.iter().fold(0, |a, b| a + b);
         let mut total: i64 = total.into();
-        if let Some(modifier) = self.modifier {
+        if let Some(modifier) = self.settings.modifier {
             total = total + modifier as i64
         }
         write!(f, "Your final roll is: 🎲 <b>{}</b> 🎲", total)
     }
 }
 
-fn roll(number: u32, sides: u32, modifier: Option<i32>) -> RollResults {
-    RollResults::new(number, sides, modifier)
-}
-
-fn parse_roll(input: String) -> Result<(u32, u32, Option<i32>), ParseRollError> {
-    lazy_static! {
-        static ref RE: Regex =
-            Regex::new(r"^([0-9]{1,4})(d|D)([0-9]{1,4})([+-][0-9]{1,4})?$").unwrap();
-    }
-    log::trace!("Cleaning raw input {}", input);
-    let stripped: String = input.chars().filter(|c| !c.is_whitespace()).collect();
-    log::info!("Parsing input {}", input);
-    let captures = RE.captures(&stripped).ok_or_else(|| {
-        log::warn!("Regex match failure for {}", input);
-        ParseRollError::InvalidFormat(stripped.clone())
-    })?;
-
-    // 1d20+4
-    // Some(Captures({
-    //     0: Some("1d20+4"),
-    //     1: Some("1"),
-    //     2: Some("d"),
-    //     3: Some("20"),
-    //     4: Some("+4"),
-    // })),
-    let number = captures
-        .get(1)
-        .expect("to exist")
-        .as_str()
-        .parse::<u32>()
-        .expect("to be integer");
-    let sides = captures
-        .get(3)
-        .expect("to exist")
-        .as_str()
-        .parse::<u32>()
-        .expect("to be integer");
-    let modifier = captures
-        .get(4)
-        .map(|res| res.as_str().parse::<i32>().expect("to be integer"));
-
-    if number == 0 || sides == 0 {
-        Err(ParseRollError::CannotBeZero(stripped))?
-    }
-
-    Ok((number, sides, modifier))
-}
-
 type AdaptedBot = DefaultParseMode<Throttle<CacheMe<Bot>>>;
-
 async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<()> {
     match cmd {
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?;
         }
-        Command::Roll(number, sides, modifier) => {
-            let results = roll(number, sides, modifier);
-            log::debug!("Dice roll: {:?}", results);
-            bot.send_message(msg.chat.id, results.to_string())
-                .reply_to_message_id(msg.id)
-                .await?;
+        Command::Roll(input) => {
+            if input == "" {
+                bot.send_dice(msg.chat.id)
+                    .reply_to_message_id(msg.id)
+                    .await?;
+            } else {
+                let settings = RollSettings::from_str(&input);
+                match settings {
+                    Ok(settings) => {
+                        let results = settings.roll();
+                        log::debug!("Dice roll: {:?}", results);
+                        bot.send_message(msg.chat.id, results.to_string())
+                            .reply_to_message_id(msg.id)
+                            .await?;
+                    }
+                    Err(e) => {
+                        bot.send_message(
+                            msg.chat.id,
+                            format!("😢 I did not understand you: {}", e),
+                        )
+                        .reply_to_message_id(msg.id)
+                        .await?;
+                    }
+                }
+            }
         }
     };
 
