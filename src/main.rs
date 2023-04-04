@@ -210,7 +210,7 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
                     .reply_to_message_id(msg.id)
                     .await?;
             }
-            "eye" | "eyes" => {
+            "eye" | "eyes" | "👀" | "👁" | "👁‍🗨" => {
                 bot.send_message(
                             msg.chat.id,
                             "As a non-language non-model, I just spit out what was written in my code and I can never vary.",
