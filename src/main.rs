@@ -1,4 +1,3 @@
-use std::io::Write;
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -106,10 +105,9 @@ impl<'a> RollResults<'a> {
             .map(|_| die.sample(&mut rng))
             .collect();
 
-        let total = rolls.iter().fold(0, |a, b| a + b);
-        let mut total: i64 = total.into();
+        let mut total: i64 = rolls.iter().map(|i| *i as i64).sum();
         if let Some(modifier) = settings.modifier {
-            total = total + modifier as i64
+            total += modifier as i64
         }
 
         RollResults {
@@ -128,7 +126,7 @@ impl<'a> std::fmt::Display for RollResults<'a> {
                 if number > 0 {
                     format!(" + {}", number)
                 } else {
-                    format!(" - {}", number * -1)
+                    format!(" - {}", -number)
                 }
             }
         };
@@ -239,8 +237,8 @@ async fn handle_roll(
                 .reply_to_message_id(msg.id)
                 .await?;
         }
-        input @ _ => {
-            let settings = RollSettings::from_str(&input);
+        input => {
+            let settings = RollSettings::from_str(input);
             match settings {
                 Ok(settings) => {
                     let results = settings.roll();
@@ -263,6 +261,7 @@ async fn handle_roll(
                                 }
                                 #[cfg(feature = "tempfile-send")]
                                 {
+                                    use std::io::Write;
                                     use tempfile::NamedTempFile;
 
                                     let mut temp_json = NamedTempFile::new()?;
