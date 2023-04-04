@@ -30,7 +30,7 @@ struct Args {
     api_key: Option<String>,
 }
 
-#[derive(BotCommands, Clone)]
+#[derive(BotCommands, Clone, PartialEq, Debug)]
 #[command(
     rename_rule = "snake_case",
     description = "These commands are supported:"
@@ -39,7 +39,7 @@ enum Command {
     #[command(description = "Display help text")]
     Help,
     #[command(description = "Roll a dice.")]
-    Roll(String),
+    Roll(RollSettings),
 }
 
 fn identity_parser(input: String) -> Result<String, ParseError> {
@@ -146,7 +146,7 @@ struct RollResults<'a> {
 }
 
 impl<'a> RollResults<'a> {
-    fn new(settings: &RollSettings) -> Self {
+    fn new(settings: &'a RollSettings) -> Self {
         let mut rng = rand::thread_rng();
         let die = Uniform::from(1..=settings.sides);
 
@@ -209,31 +209,38 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?;
         }
-        Command::Roll(input) => {
-            if input == "" {
-                bot.send_dice(msg.chat.id)
-                    .reply_to_message_id(msg.id)
-                    .await?;
-            } else {
-                let settings = RollSettings::from_str(&input);
-                match settings {
-                    Ok(settings) => {
-                        let results = settings.roll();
-                        log::debug!("Dice roll: {:?}", results);
-                        bot.send_message(msg.chat.id, results.to_string())
-                            .reply_to_message_id(msg.id)
-                            .await?;
-                    }
-                    Err(e) => {
-                        bot.send_message(
-                            msg.chat.id,
-                            format!("😢 I did not understand you: {}", e),
-                        )
-                        .reply_to_message_id(msg.id)
-                        .await?;
-                    }
-                }
-            }
+        // Command::Roll(input) => {
+        //     if input == "" {
+        //         bot.send_dice(msg.chat.id)
+        //             .reply_to_message_id(msg.id)
+        //             .await?;
+        //     } else {
+        //         let settings = RollSettings::from_str(&input);
+        //         match settings {
+        //             Ok(settings) => {
+        //                 let results = settings.roll();
+        //                 log::debug!("Dice roll: {:?}", results);
+        //                 bot.send_message(msg.chat.id, results.to_string())
+        //                     .reply_to_message_id(msg.id)
+        //                     .await?;
+        //             }
+        //             Err(e) => {
+        //                 bot.send_message(
+        //                     msg.chat.id,
+        //                     format!("😢 I did not understand you: {}", e),
+        //                 )
+        //                 .reply_to_message_id(msg.id)
+        //                 .await?;
+        //             }
+        //         }
+        //     }
+        // }
+        Command::Roll(settings) => {
+            let results = settings.roll();
+            log::debug!("Dice roll: {:?}", results);
+            bot.send_message(msg.chat.id, results.to_string())
+                .reply_to_message_id(msg.id)
+                .await?;
         }
     };
 
