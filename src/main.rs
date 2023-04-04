@@ -205,6 +205,7 @@ where
 type AdaptedBot = DefaultParseMode<Throttle<CacheMe<Bot>>>;
 
 async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<()> {
+    let silly_text =  "As a non-language non-model, I just spit out what was written in my code and I can never vary.";
     match cmd {
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
@@ -217,12 +218,9 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
                     .await?;
             }
             "eye" | "eyes" | "👀" | "👁" | "👁‍🗨" => {
-                bot.send_message(
-                            msg.chat.id,
-                            "As a non-language non-model, I just spit out what was written in my code and I can never vary.",
-                        )
-                        .reply_to_message_id(msg.id)
-                        .await?;
+                bot.send_message(msg.chat.id, silly_text)
+                    .reply_to_message_id(msg.id)
+                    .await?;
             }
             input @ _ => {
                 let settings = RollSettings::from_str(&input);
@@ -237,7 +235,7 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
                     Err(e) => {
                         bot.send_message(
                             msg.chat.id,
-                            format!("💣 Try again! 💣 <code>{}</code>", e),
+                            format!("{} \n\nIn other words, it is likely you have made a mistake and I definitely cannot help you to fix it. Try again!\n\n💣 <code>{}</code> 💣", silly_text, e),
                         )
                         .reply_to_message_id(msg.id)
                         .await?;
