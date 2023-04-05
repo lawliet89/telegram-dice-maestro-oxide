@@ -35,19 +35,19 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --target ${{ matrix.target }} ${{ matrix.flags }}
+          args:  --release --target ${{ matrix.target }} ${{ matrix.flags }}
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
           name: Binary ${{ matrix.target }}
           path: |
             target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: Build Artefacts ${{ matrix.target }}
-          path: |
-            target
+      # - name: Upload build artifacts
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: Build Artefacts ${{ matrix.target }}
+      #     path: |
+      #       target
 
   mac_build:
     name: Build for Mac
@@ -75,16 +75,16 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --target ${{ matrix.target }} ${{ matrix.flags }}
+          args:  --release --target ${{ matrix.target }} ${{ matrix.flags }}
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
           name: Binary ${{ matrix.target }}
           path: |
             target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: Build Artefacts ${{ matrix.target }}
-          path: |
-            target
+      # - name: Upload build artifacts
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: Build Artefacts ${{ matrix.target }}
+      #     path: |
+      #       target
