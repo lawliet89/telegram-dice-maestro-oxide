@@ -29,8 +29,7 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: ${{ matrix.target }}
-          cache-on-failure: "true"
+          prefix-key: ${{ matrix.target }}-release
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
@@ -70,8 +69,7 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: ${{ matrix.target }}
-          cache-on-failure: "true"
+          prefix-key: ${{ matrix.target }}-release
       - uses: actions-rs/cargo@v1
         with:
           command: build
