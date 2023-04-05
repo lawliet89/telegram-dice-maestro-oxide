@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - target: x86_64-pc-windows-msvc
-            flags:
+            flags: --no-default-features --features openssl
           - target: x86_64-pc-windows-gnu
             flags:
           - target: x86_64-unknown-linux-musl
@@ -26,6 +26,8 @@ jobs:
           - target: aarch64-unknown-linux-musl
             flags:
           - target: armv7-unknown-linux-gnueabihf
+            flags:
+          - target: armv7-unknown-linux-musleabihf
             flags:
     steps:
       - uses: actions/checkout@v3
