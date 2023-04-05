@@ -5,6 +5,6 @@ LABEL org.opencontainers.image.source=https://github.com/lawliet89/telegram-dice
 LABEL org.opencontainers.image.licenses=Apache-2.0
 
 ARG TARGETPLATFORM
-COPY targets/${TARGETPLATFORM}/telegram-dice-maestro-oxide /
+COPY builds/${TARGETPLATFORM}/telegram-dice-maestro-oxide /
 
 CMD ["/telegram-dice-maestro-oxide"]

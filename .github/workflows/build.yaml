@@ -68,22 +68,22 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: x86_64-pc-windows-gnu
-          path: targets/windows/amd64
+          path: builds/windows/amd64
       - uses: actions/download-artifact@v3
         with:
           name: x86_64-unknown-linux-musl
-          path: targets/linux/amd64
+          path: builds/linux/amd64
       - uses: actions/download-artifact@v3
         with:
           name: armv7-unknown-linux-gnueabihf
-          path: targets/linux/arm32v7
+          path: builds/linux/arm32/v7
 
       - name: 'Echo download path'
         run: |
-          chmod +x targets/**/*/telegram-dice-maestro-oxide
-          mv targets/windows/amd64/telegram-dice-maestro-oxide.exe targets/windows/amd64/telegram-dice-maestro-oxide
+          chmod +x builds/**/*/telegram-dice-maestro-oxide
+          mv builds/windows/amd64/telegram-dice-maestro-oxide.exe builds/windows/amd64/telegram-dice-maestro-oxide
           pwd
-          tree targets/
+          tree builds/
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -117,7 +117,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          platform: windows/amd64,linux/amd64,linux/arm32v7
+          platform: windows/amd64,linux/amd64,linux/arm32/v7
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
