@@ -1,0 +1,9 @@
+# For GitHub Actions build
+FROM cgr.dev/chainguard/static:latest
+
+ARG ARCH
+RUN mkdir -p /bin
+COPY target/${ARCH}/release/telegram-dice-maestro-oxide* /bin
+RUN rm /bin/*.d && chmod +x /bin/telegram-dice-maestro-oxide
+
+CMD ["/bin/telegram-dice-maestro-oxide"]
