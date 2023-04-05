@@ -80,6 +80,7 @@ jobs:
 
       - name: 'Echo download path'
         run: |
+          tree
           chmod +x target/*/telegram-dice-maestro-oxide
           mv targets/windows/amd64/telegram-dice-maestro-oxide.exe targets/windows/amd64/telegram-dice-maestro-oxide
           tree targets/
