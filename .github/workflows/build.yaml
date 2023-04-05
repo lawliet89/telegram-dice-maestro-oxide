@@ -14,15 +14,15 @@ jobs:
       matrix:
         include:
           - target: x86_64-pc-windows-gnu
-            features: default
+            flags:
           - target: x86_64-unknown-linux-musl
-            features: default
+            flags:
           - target: armv7-unknown-linux-gnueabihf
-            features: default
+            flags:
           - target: x86_64-apple-darwin
-            features: openssl
+            flags: --no-default-features --features openssl
           - target: aarch64-apple-darwin
-            features: openssl
+            flags: --no-default-features --features openssl
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -32,11 +32,13 @@ jobs:
           override: true
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
-          args: --target ${{ matrix.target }} --release --features ${{ matrix.features }}
+          args: --target ${{ matrix.target }} ${{ matrix.flags }}
       # - name: Compile
       #   id: compile
       #   uses: rust-build/rust-build.action@v1.4.3

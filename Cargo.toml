@@ -22,6 +22,7 @@ thiserror = "1.0.40"
 tokio = { version =  "1.8", features = ["rt-multi-thread", "macros"] }
 
 [features]
-default = ["teloxide/rustls"]
+default = ["rustls"]
+rustls = ["teloxide/rustls"]
 openssl = ["teloxide/native-tls"]
 tempfile-send = ["dep:tempfile"]
