@@ -19,6 +19,43 @@ jobs:
             flags:
           - target: armv7-unknown-linux-gnueabihf
             flags:
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ matrix.target }}
+          cache-on-failure: "true"
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --target ${{ matrix.target }} ${{ matrix.flags }}
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Binary ${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Build Artefacts ${{ matrix.target }}
+          path: |
+            target
+
+  mac_build:
+    name: Build for Mac
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
           - target: x86_64-apple-darwin
             flags: --no-default-features --features openssl
           - target: aarch64-apple-darwin
@@ -37,19 +74,17 @@ jobs:
           cache-on-failure: "true"
       - uses: actions-rs/cargo@v1
         with:
-          use-cross: true
           command: build
           args: --target ${{ matrix.target }} ${{ matrix.flags }}
-      # - name: Compile
-      #   id: compile
-      #   uses: rust-build/rust-build.action@v1.4.3
-      #   with:
-      #     RUSTTARGET: ${{ matrix.target }}
-      #     # ARCHIVE_TYPES: ${{ matrix.archive }}
-      #     UPLOAD_MODE: none
-      - name: Upload artifact
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.target }}
+          name: Binary ${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Build Artefacts ${{ matrix.target }}
           path: |
             target
