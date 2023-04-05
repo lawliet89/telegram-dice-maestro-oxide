@@ -1,6 +1,9 @@
 # For GitHub Actions build
 FROM cgr.dev/chainguard/static:latest
 
+LABEL org.opencontainers.image.source=https://github.com/lawliet89/telegram-dice-maestro-oxide
+LABEL org.opencontainers.image.licenses=Apache-2.0
+
 ARG ARCH
 COPY target/${ARCH}/release/telegram-dice-maestro-oxide* /
 

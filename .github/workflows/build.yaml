@@ -100,7 +100,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           file: Dockerfile.gha
-
+          outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=${{ matrix.docker_platform }}
   mac_build:
     name: Build for Mac
     runs-on: macos-latest
