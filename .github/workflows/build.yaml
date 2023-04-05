@@ -155,7 +155,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: Binary ${{ matrix.target }}
+          name: ${{ matrix.target }}
           path: |
             target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
       # - name: Upload build artifacts
