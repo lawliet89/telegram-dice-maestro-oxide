@@ -76,7 +76,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: armv7-unknown-linux-gnueabihf
-          path: builds/linux/arm32/v7
+          path: builds/linux/arm32v7
 
       - name: 'Echo download path'
         run: |
@@ -117,7 +117,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          platforms: windows/amd64,linux/amd64,linux/arm32/v7
+          platforms: windows/amd64,linux/amd64,linux/arm32v7
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
