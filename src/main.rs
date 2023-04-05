@@ -17,18 +17,18 @@ use thiserror::Error;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Path to API Key
+    /// Path to file containing Telegram Bot Token
     #[arg(
         long,
         env,
-        conflicts_with("api_key"),
-        required_unless_present("api_key")
+        conflicts_with("bot_token"),
+        required_unless_present("bot_token")
     )]
-    api_key_file: Option<String>,
+    bot_token_file: Option<String>,
 
-    /// API Key. **Highly recommended that this is not set this via command line.**
-    #[arg(long, env, required_unless_present("api_key_file"))]
-    api_key: Option<String>,
+    /// Bot token. **Highly recommended that this is not set via command line, because it will show up in running processes.**
+    #[arg(long, env, required_unless_present("bot_token_file"))]
+    bot_token: Option<String>,
 }
 
 #[derive(BotCommands, Clone, PartialEq)]
@@ -46,10 +46,10 @@ enum Command {
 }
 
 fn get_token(args: Args) -> anyhow::Result<String> {
-    if let Some(key) = args.api_key {
+    if let Some(key) = args.bot_token {
         return Ok(key);
     }
-    if let Some(file) = args.api_key_file {
+    if let Some(file) = args.bot_token_file {
         return Ok(std::fs::read_to_string(file)?.trim().to_string());
     }
     Err(anyhow!("No API Key provided"))
