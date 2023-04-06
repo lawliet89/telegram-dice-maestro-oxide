@@ -12,7 +12,7 @@ use teloxide::utils::command::BotCommands;
 
 use dice::*;
 
-/// Telegram bot to roll a dice!
+/// Telegram bot to roll die!
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -28,6 +28,10 @@ struct Args {
     /// Bot token. **Highly recommended that this is not set via command line, because it will show up in running processes.**
     #[arg(long, env, required_unless_present("bot_token_file"))]
     bot_token: Option<String>,
+
+    /// Set bot commands on startup
+    #[arg(long, env)]
+    set_my_commands: bool,
 }
 
 #[derive(BotCommands, Clone, PartialEq)]
@@ -38,17 +42,29 @@ struct Args {
 enum Command {
     #[command(description = "Display help text")]
     Help,
-    #[command(description = "Roll a dice.")]
+    #[command(description = "Roll die.")]
     Roll(String),
-    #[command(description = "Roll a dice, and send data output")]
-    RollWithData(String),
+    #[command(description = "Roll die, and send data output")]
+    Data(String),
+    #[command(description = "Roll with advantage")]
+    Adv(String),
+    #[command(description = "Roll with advantage")]
+    Advantage(String),
+    #[command(description = "Roll with advantage, and send data output")]
+    AdvantageData(String),
+    #[command(description = "Roll with disadvantage")]
+    Dis(String),
+    #[command(description = "Roll with disadvantage")]
+    Disadvantage(String),
+    #[command(description = "Roll with disadvantage, and send data output")]
+    DisadvantageData(String),
 }
 
-fn get_token(args: Args) -> anyhow::Result<String> {
-    if let Some(key) = args.bot_token {
-        return Ok(key);
+fn get_token(args: &Args) -> anyhow::Result<String> {
+    if let Some(key) = args.bot_token.as_ref() {
+        return Ok(key.clone());
     }
-    if let Some(file) = args.bot_token_file {
+    if let Some(file) = args.bot_token_file.as_ref() {
         return Ok(std::fs::read_to_string(file)?.trim().to_string());
     }
     Err(anyhow!("No API Key provided"))
@@ -62,8 +78,24 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?;
         }
-        Command::Roll(input) => handle_roll(bot, msg, input.as_str(), false).await?,
-        Command::RollWithData(input) => handle_roll(bot, msg, input.as_str(), true).await?,
+        Command::Roll(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Straight, false).await?
+        }
+        Command::Data(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Straight, true).await?
+        }
+        Command::Advantage(input) | Command::Adv(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, false).await?
+        }
+        Command::AdvantageData(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, true).await?
+        }
+        Command::Disadvantage(input) | Command::Dis(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, false).await?
+        }
+        Command::DisadvantageData(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, true).await?
+        }
     };
 
     Ok(())
@@ -73,6 +105,7 @@ async fn handle_roll(
     bot: AdaptedBot,
     msg: Message,
     input: &str,
+    roll_type: &RollType,
     send_json: bool,
 ) -> ResponseResult<()> {
     let silly_text =  "As a non-language non-model, I just spit out what was written in my code and I can never vary.";
@@ -91,7 +124,7 @@ async fn handle_roll(
             let settings = RollSettings::from_str(input);
             match settings {
                 Ok(settings) => {
-                    let results = settings.roll();
+                    let results = RollResults::new(&settings, roll_type);
                     log::debug!("Dice roll: {:?}", results);
                     let roll_msg = bot
                         .send_message(msg.chat.id, results.to_string())
@@ -100,32 +133,13 @@ async fn handle_roll(
                     if send_json {
                         match serde_json::to_string_pretty(&results) {
                             Ok(output_json) => {
-                                // https://github.com/teloxide/teloxide/discussions/869
-                                #[cfg(not(feature = "tempfile-send"))]
-                                {
-                                    bot.send_document(
-                                        msg.chat.id,
-                                        InputFile::memory(output_json.into_bytes())
-                                            .file_name("roll.json"),
-                                    )
-                                    .reply_to_message_id(roll_msg.id)
-                                    .await?;
-                                }
-                                #[cfg(feature = "tempfile-send")]
-                                {
-                                    use std::io::Write;
-                                    use tempfile::NamedTempFile;
-
-                                    let mut temp_json = NamedTempFile::new()?;
-                                    temp_json.write_all(output_json.as_bytes())?;
-                                    temp_json.flush()?;
-                                    bot.send_document(
-                                        msg.chat.id,
-                                        InputFile::file(temp_json.path()).file_name("roll.json"),
-                                    )
-                                    .reply_to_message_id(roll_msg.id)
-                                    .await?;
-                                }
+                                bot.send_document(
+                                    msg.chat.id,
+                                    InputFile::memory(output_json.into_bytes())
+                                        .file_name("roll.json"),
+                                )
+                                .reply_to_message_id(roll_msg.id)
+                                .await?;
                             }
                             Err(e) => {
                                 bot.send_message(
@@ -160,14 +174,20 @@ async fn main() -> anyhow::Result<()> {
         .init();
     let args = Args::parse();
     log::info!("Reading token...");
-    let token = get_token(args)?;
+    let token = get_token(&args)?;
     let bot = Bot::new(token)
         .cache_me()
         .throttle(Default::default())
         .parse_mode(ParseMode::Html);
 
-    log::info!("Starting dicer roller bot...");
+    log::info!("Starting die rolling bot...");
     log::info!("Running as: {:?}", bot.get_me().await?);
+
+    if args.set_my_commands {
+        let commands = Command::bot_commands();
+        log::info!("Setting bot commands: {:?}", commands);
+        bot.set_my_commands(commands).await?;
+    }
 
     Command::repl(bot, answer).await;
     Ok(())
