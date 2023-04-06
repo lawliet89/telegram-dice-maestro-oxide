@@ -41,7 +41,7 @@ impl RollSettings {
     }
 }
 
-impl<'a> std::fmt::Display for RollSettings {
+impl std::fmt::Display for RollSettings {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.format_parameters())
     }
@@ -141,7 +141,7 @@ pub(crate) enum RollType {
     Disadvantage,
 }
 
-impl<'a> std::fmt::Display for RollType {
+impl std::fmt::Display for RollType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RollType::Straight => write!(f, "Straight"),

@@ -124,7 +124,7 @@ async fn handle_roll(
             let settings = RollSettings::from_str(input);
             match settings {
                 Ok(settings) => {
-                    let results = RollResults::new(&settings, &roll_type);
+                    let results = RollResults::new(&settings, roll_type);
                     log::debug!("Dice roll: {:?}", results);
                     let roll_msg = bot
                         .send_message(msg.chat.id, results.to_string())
