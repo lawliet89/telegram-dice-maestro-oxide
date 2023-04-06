@@ -1,0 +1,58 @@
+name: Build (Reusable)
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: Rust Target Triple
+        type: string
+        required: true
+      cargo_flags:
+        description: Cargo flags
+        type: string
+        default: ""
+        required: false
+      release:
+        description: Do a release build
+        type: boolean
+        default: true
+        required: false
+      runs_on:
+        description: What to run on
+        type: string
+        default: "ubuntu-latest"
+        required: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ inputs.runs_on }}
+    steps:
+      - uses: haya14busa/action-cond@v1
+        id: release_flag
+        with:
+          cond: ${{ inputs.release }}
+          if_true: "--release"
+          if_false: ""
+
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ inputs.target }}
+          override: true
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ inputs.target }}${{ steps.release_flag.outputs.value }}
+
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args:  ${{ steps.release_flag.outputs.value }} --target ${{ inputs.target }} ${{ inputs.cargo_flags }}
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.target }}
+          path: |
+            target/${{ inputs.target }}/release/telegram-dice-maestro-oxide*

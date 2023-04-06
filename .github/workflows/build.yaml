@@ -42,7 +42,6 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
     needs: test
     strategy:
       fail-fast: false
@@ -50,45 +49,39 @@ jobs:
         include:
           - target: x86_64-pc-windows-msvc
             flags: --no-default-features --features openssl
+            runs_on: ubuntu-latest
           - target: x86_64-pc-windows-gnu
             flags:
+            runs_on: ubuntu-latest
           - target: x86_64-unknown-linux-musl
             flags:
+            runs_on: ubuntu-latest
           - target: aarch64-unknown-linux-musl
             flags:
+            runs_on: ubuntu-latest
           # - target: armv7-unknown-linux-gnueabihf
           #   flags:
+          #   runs_on: ubuntu-latest
+
           - target: armv7-unknown-linux-musleabihf
             flags:
-    steps:
-      - uses: haya14busa/action-cond@v1
-        id: release_flag
-        with:
-          cond: ${{ github.ref == 'refs/heads/main' }}
-          if_true: "--release"
-          if_false: ""
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: ${{ matrix.target }}${{ steps.release_flag.outputs.value }}
+            runs_on: ubuntu-latest
+          - target: x86_64-apple-darwin
+            flags: --no-default-features --features openssl
+            runs_on: macos-latest
+          - target: aarch64-apple-darwin
+            flags: --no-default-features --features openssl
+            runs_on: macos-latest
 
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args:  ${{ steps.release_flag.outputs.value }} --target ${{ matrix.target }} ${{ matrix.flags }}
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
+    uses: ./.github/workflows/build_reusable.yaml
+    with:
+      target: ${{ matrix.target }}
+      cargo_flags: ${{ matrix.flags }}
+      release: ${{ github.ref == 'refs/heads/main' }}
+      runs_on: ${{ matrix.runs_on }}
+    secrets: inherit
+
+
 
   #####################
   # Docker Builds
@@ -166,38 +159,3 @@ jobs:
           cache-to: type=gha,mode=max
           file: Dockerfile.gha
           outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Telegram Dice Roller
-
-  mac_build:
-    name: Build for Mac
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-apple-darwin
-            flags: --no-default-features --features openssl
-          - target: aarch64-apple-darwin
-            flags: --no-default-features --features openssl
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: ${{ matrix.target }}-release
-      - uses: actions-rs/cargo@v1
-        if: ${{ github.ref == 'refs/heads/main' }}
-        with:
-          command: build
-          args:  --release --target ${{ matrix.target }} ${{ matrix.flags }}
-      - name: Upload binary artifact
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
