@@ -123,53 +123,6 @@ pub(crate) fn parse_roll(input: &str) -> Result<RollSettings, ParseRollError> {
     Ok(result)
 }
 
-// pub(crate) fn parse_roll<S>(input: S) -> Result<(u32, u32, Option<i32>), ParseRollError>
-// where
-//     S: AsRef<str> + std::fmt::Display + std::ops::Deref<Target = str>,
-// {
-//     lazy_static! {
-//         static ref RE: Regex =
-//             Regex::new(r"^([0-9]{1,4})(d|D)([0-9]{1,4})([+-][0-9]{1,4})?$").unwrap();
-//     }
-//     log::trace!("Cleaning raw input {}", &input);
-//     let stripped = input.trim();
-//     log::info!("Parsing input {}", &input);
-//     let captures = RE.captures(stripped).ok_or_else(|| {
-//         log::warn!("Regex match failure for {}", &input);
-//         ParseRollError::ParseError(stripped.to_string())
-//     })?;
-
-//     // 1d20+4
-//     // Some(Captures({
-//     //     0: Some("1d20+4"),
-//     //     1: Some("1"),
-//     //     2: Some("d"),
-//     //     3: Some("20"),
-//     //     4: Some("+4"),
-//     // })),
-//     let number = captures
-//         .get(1)
-//         .expect("to exist")
-//         .as_str()
-//         .parse::<u32>()
-//         .expect("to be integer");
-//     let sides = captures
-//         .get(3)
-//         .expect("to exist")
-//         .as_str()
-//         .parse::<u32>()
-//         .expect("to be integer");
-//     let modifier = captures
-//         .get(4)
-//         .map(|res| res.as_str().parse::<i32>().expect("to be integer"));
-
-//     if number == 0 || sides == 0 {
-//         Err(ParseRollError::CannotBeZero(stripped.to_string()))?
-//     }
-
-//     Ok((number, sides, modifier))
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
