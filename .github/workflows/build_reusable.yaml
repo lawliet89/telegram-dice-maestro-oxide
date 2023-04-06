@@ -56,3 +56,4 @@ jobs:
           name: ${{ inputs.target }}
           path: |
             target/${{ inputs.target }}/release/telegram-dice-maestro-oxide*
+            target/${{ inputs.target }}/debug/telegram-dice-maestro-oxide*
