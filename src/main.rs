@@ -12,7 +12,7 @@ use teloxide::utils::command::BotCommands;
 
 use dice::*;
 
-/// Telegram bot to roll a dice!
+/// Telegram bot to roll die!
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -38,10 +38,20 @@ struct Args {
 enum Command {
     #[command(description = "Display help text")]
     Help,
-    #[command(description = "Roll a dice.")]
+    #[command(description = "Roll die.")]
     Roll(String),
-    #[command(description = "Roll a dice, and send data output")]
+    #[command(description = "Roll die, and send data output")]
     RollWithData(String),
+    #[command(description = "Roll die, and send data output")]
+    Data(String),
+    #[command(description = "Roll with advantage")]
+    Adv(String),
+    #[command(description = "Roll with advantage")]
+    RollWithAdvantage(String),
+    #[command(description = "Roll with disadvantage")]
+    Dis(String),
+    #[command(description = "Roll with disadvantage")]
+    RollWithDisadvantage(String),
 }
 
 fn get_token(args: Args) -> anyhow::Result<String> {
@@ -62,8 +72,18 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?;
         }
-        Command::Roll(input) => handle_roll(bot, msg, input.as_str(), false).await?,
-        Command::RollWithData(input) => handle_roll(bot, msg, input.as_str(), true).await?,
+        Command::Roll(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Straight, false).await?
+        }
+        Command::RollWithData(input) | Command::Data(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Straight, true).await?
+        }
+        Command::RollWithAdvantage(input) | Command::Adv(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, false).await?
+        }
+        Command::RollWithDisadvantage(input) | Command::Dis(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, false).await?
+        }
     };
 
     Ok(())
@@ -73,6 +93,7 @@ async fn handle_roll(
     bot: AdaptedBot,
     msg: Message,
     input: &str,
+    roll_type: &RollType,
     send_json: bool,
 ) -> ResponseResult<()> {
     let silly_text =  "As a non-language non-model, I just spit out what was written in my code and I can never vary.";
@@ -91,7 +112,7 @@ async fn handle_roll(
             let settings = RollSettings::from_str(input);
             match settings {
                 Ok(settings) => {
-                    let results = settings.roll();
+                    let results = RollResults::new(&settings, &roll_type);
                     log::debug!("Dice roll: {:?}", results);
                     let roll_msg = bot
                         .send_message(msg.chat.id, results.to_string())
@@ -100,32 +121,13 @@ async fn handle_roll(
                     if send_json {
                         match serde_json::to_string_pretty(&results) {
                             Ok(output_json) => {
-                                // https://github.com/teloxide/teloxide/discussions/869
-                                #[cfg(not(feature = "tempfile-send"))]
-                                {
-                                    bot.send_document(
-                                        msg.chat.id,
-                                        InputFile::memory(output_json.into_bytes())
-                                            .file_name("roll.json"),
-                                    )
-                                    .reply_to_message_id(roll_msg.id)
-                                    .await?;
-                                }
-                                #[cfg(feature = "tempfile-send")]
-                                {
-                                    use std::io::Write;
-                                    use tempfile::NamedTempFile;
-
-                                    let mut temp_json = NamedTempFile::new()?;
-                                    temp_json.write_all(output_json.as_bytes())?;
-                                    temp_json.flush()?;
-                                    bot.send_document(
-                                        msg.chat.id,
-                                        InputFile::file(temp_json.path()).file_name("roll.json"),
-                                    )
-                                    .reply_to_message_id(roll_msg.id)
-                                    .await?;
-                                }
+                                bot.send_document(
+                                    msg.chat.id,
+                                    InputFile::memory(output_json.into_bytes())
+                                        .file_name("roll.json"),
+                                )
+                                .reply_to_message_id(roll_msg.id)
+                                .await?;
                             }
                             Err(e) => {
                                 bot.send_message(

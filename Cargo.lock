@@ -1347,7 +1347,6 @@ dependencies = [
  "serde",
  "serde_json",
  "teloxide",
- "tempfile",
  "thiserror",
  "tokio",
 ]
