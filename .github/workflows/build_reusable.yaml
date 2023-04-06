@@ -50,10 +50,18 @@ jobs:
           use-cross: true
           command: build
           args:  ${{ steps.release_flag.outputs.value }} --target ${{ inputs.target }} ${{ inputs.cargo_flags }}
-      - name: Upload binary artifact
+      - name: Upload binary artifact (release)
         uses: actions/upload-artifact@v3
+        if: ${{ inputs.release }}
         with:
           name: ${{ inputs.target }}
           path: |
             target/${{ inputs.target }}/release/telegram-dice-maestro-oxide*
+
+      - name: Upload binary artifact (debug)
+        uses: actions/upload-artifact@v3
+        if: ${{ !inputs.release }}
+        with:
+          name: ${{ inputs.target }}
+          path: |
             target/${{ inputs.target }}/debug/telegram-dice-maestro-oxide*
