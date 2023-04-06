@@ -93,7 +93,8 @@ async fn handle_roll(
                 Ok(settings) => {
                     let results = settings.roll();
                     log::debug!("Dice roll: {:?}", results);
-                    let roll_msg = bot.send_message(msg.chat.id, results.to_string())
+                    let roll_msg = bot
+                        .send_message(msg.chat.id, results.to_string())
                         .reply_to_message_id(msg.id)
                         .await?;
                     if send_json {
@@ -102,12 +103,13 @@ async fn handle_roll(
                                 // https://github.com/teloxide/teloxide/discussions/869
                                 #[cfg(not(feature = "tempfile-send"))]
                                 {
-                                bot.send_document(
-                                    msg.chat.id,
-                                    InputFile::memory(output_json.into_bytes()).file_name("roll.json"),
-                                )
-                                .reply_to_message_id(roll_msg.id)
-                                .await?;
+                                    bot.send_document(
+                                        msg.chat.id,
+                                        InputFile::memory(output_json.into_bytes())
+                                            .file_name("roll.json"),
+                                    )
+                                    .reply_to_message_id(roll_msg.id)
+                                    .await?;
                                 }
                                 #[cfg(feature = "tempfile-send")]
                                 {

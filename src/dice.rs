@@ -6,7 +6,7 @@ use regex::Regex;
 use serde::Serialize;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub(crate) enum ParseRollError {
     #[error("Invalid roll format: {0}")]
     InvalidFormat(String),
@@ -41,7 +41,7 @@ impl FromStr for RollSettings {
 }
 
 #[derive(Serialize, Debug)]
-pub(crate)  struct RollResults<'a> {
+pub(crate) struct RollResults<'a> {
     pub rolls: Vec<u32>,
     pub total: i64,
     pub settings: &'a RollSettings,
@@ -153,4 +153,96 @@ where
     }
 
     Ok((number, sides, modifier))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_correctly() {
+        let cases = [
+            (
+                "rubbish",
+                Err(ParseRollError::InvalidFormat("rubbish".to_string())),
+            ),
+            (
+                "1d20",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: None,
+                }),
+            ),
+            (
+                "1d20+3",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: Some(3),
+                }),
+            ),
+            (
+                "1d20-2",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: Some(-2),
+                }),
+            ),
+            (
+                "1 d 20",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: None,
+                }),
+            ),
+            (
+                "1d20 - 2",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: Some(-2),
+                }),
+            ),
+            (
+                "9999d9999+3",
+                Ok(RollSettings {
+                    number: 9999,
+                    sides: 9999,
+                    modifier: Some(3),
+                }),
+            ),
+            // too many dices
+            (
+                "100000d20",
+                Err(ParseRollError::InvalidFormat("100000d20".to_string())),
+            ),
+            // too many sides
+            (
+                "1d100000",
+                Err(ParseRollError::InvalidFormat("1d100000".to_string())),
+            ),
+            // modifier too big
+            (
+                "1d20+10000000",
+                Err(ParseRollError::InvalidFormat("1d20+10000000".to_string())),
+            ),
+        ];
+
+        for (input, expected) in cases {
+            let actual = RollSettings::from_str(input);
+            match expected {
+                Ok(expected) => {
+                    assert!(actual.is_ok());
+                    assert_eq!(expected, actual.unwrap());
+                }
+                Err(e) => {
+                    assert!(actual.is_err());
+                    assert_eq!(e, actual.unwrap_err());
+                }
+            }
+        }
+    }
 }
