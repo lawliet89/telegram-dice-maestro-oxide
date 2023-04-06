@@ -17,8 +17,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - target: x86_64-pc-windows-msvc
-          #   flags: --no-default-features --features openssl
+          - target: x86_64-pc-windows-msvc
+            flags: --no-default-features --features openssl
           - target: x86_64-pc-windows-gnu
             flags:
           - target: x86_64-unknown-linux-musl

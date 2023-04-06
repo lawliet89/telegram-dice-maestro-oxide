@@ -1,0 +1,3 @@
+# https://github.com/cross-rs/cross/issues/487#issuecomment-1172923897
+[target.x86_64-pc-windows-msvc]
+image = "ghcr.io/lawliet89/x86_64-pc-windows-msvc-cross:latest"
