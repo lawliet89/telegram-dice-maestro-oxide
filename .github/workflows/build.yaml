@@ -4,56 +4,84 @@ on:
   push:
     branches:
       - main
+  pull_request: {}
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: test
+      - uses: actions-rs/cargo@v1
+        name: Format Check
+        with:
+          command: fmt
+          args: --all -- --check
+      - uses: actions-rs/cargo@v1
+        name: Clippy Lint (Stable)
+        with:
+          command: clippy
+          args: -- -D warnings
+      - uses: actions-rs/cargo@v1
+        name: Unit Tests
+        with:
+          use-cross: true
+          command: test
+
   build:
     name: Build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
+    needs: test
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: x86_64-pc-windows-msvc
             flags: --no-default-features --features openssl
+            runs_on: ubuntu-latest
           - target: x86_64-pc-windows-gnu
             flags:
+            runs_on: ubuntu-latest
           - target: x86_64-unknown-linux-musl
             flags:
+            runs_on: ubuntu-latest
           - target: aarch64-unknown-linux-musl
             flags:
+            runs_on: ubuntu-latest
           # - target: armv7-unknown-linux-gnueabihf
           #   flags:
+          #   runs_on: ubuntu-latest
+
           - target: armv7-unknown-linux-musleabihf
             flags:
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: ${{ matrix.target }}-release
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args:  --release --target ${{ matrix.target }} ${{ matrix.flags }}
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
+            runs_on: ubuntu-latest
+          - target: x86_64-apple-darwin
+            flags: --no-default-features --features openssl
+            runs_on: macos-latest
+          - target: aarch64-apple-darwin
+            flags: --no-default-features --features openssl
+            runs_on: macos-latest
+
+    uses: ./.github/workflows/build_reusable.yaml
+    with:
+      target: ${{ matrix.target }}
+      cargo_flags: ${{ matrix.flags }}
+      release: ${{ github.ref == 'refs/heads/main' }}
+      runs_on: ${{ matrix.runs_on }}
+    secrets: inherit
+
+
 
   #####################
   # Docker Builds
@@ -65,6 +93,7 @@ jobs:
       contents: read
       packages: write
     needs: build
+    if: ${{ github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v3
 
@@ -130,36 +159,3 @@ jobs:
           cache-to: type=gha,mode=max
           file: Dockerfile.gha
           outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Telegram Dice Roller
-
-  mac_build:
-    name: Build for Mac
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-apple-darwin
-            flags: --no-default-features --features openssl
-          - target: aarch64-apple-darwin
-            flags: --no-default-features --features openssl
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: ${{ matrix.target }}-release
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args:  --release --target ${{ matrix.target }} ${{ matrix.flags }}
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
