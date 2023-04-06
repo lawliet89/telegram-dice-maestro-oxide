@@ -51,12 +51,6 @@ jobs:
           name: ${{ matrix.target }}
           path: |
             target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
-      # - name: Upload build artifacts
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: Build Artefacts ${{ matrix.target }}
-      #     path: |
-      #       target
 
   #####################
   # Docker Builds
@@ -81,6 +75,11 @@ jobs:
         with:
           name: armv7-unknown-linux-musleabihf
           path: builds/linux/arm/v7
+      # arch64 Linux MUSL
+      - uses: actions/download-artifact@v3
+        with:
+          name: aarch64-unknown-linux-musl
+          path: builds/linux/arm64
 
       - name: 'Echo download path'
         run: |
@@ -119,7 +118,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          platforms: linux/amd64,linux/arm/v7
+          # Ref: https://github.com/containerd/containerd/blob/main/platforms/platforms.go
+          platforms: linux/amd64,linux/arm/v7,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -160,9 +160,3 @@ jobs:
           name: ${{ matrix.target }}
           path: |
             target/${{ matrix.target }}/release/telegram-dice-maestro-oxide*
-      # - name: Upload build artifacts
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: Build Artefacts ${{ matrix.target }}
-      #     path: |
-      #       target
