@@ -1,7 +1,15 @@
+use std::str::FromStr;
+
 use lazy_static::lazy_static;
 use nom::{
-    character::complete::multispace0, character::complete::one_of, combinator::recognize,
-    error::ParseError, multi::many_m_n, sequence::delimited, sequence::Tuple, Finish, IResult,
+    character::complete::multispace0,
+    character::complete::one_of,
+    combinator::{consumed, recognize},
+    error::ParseError,
+    multi::many_m_n,
+    sequence::delimited,
+    sequence::Tuple,
+    Finish, IResult,
 };
 use regex::Regex;
 use thiserror::Error;
@@ -15,13 +23,33 @@ fn ws<'a, F: 'a, O, E: ParseError<&'a str>>(
     inner: F,
 ) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
 where
-    F: Fn(&'a str) -> IResult<&'a str, O, E>,
+    F: FnMut(&'a str) -> IResult<&'a str, O, E>,
 {
     delimited(multispace0, inner, multispace0)
 }
 
-fn decimal(input: &str, min: usize, max: usize) -> IResult<&str, &str> {
-    recognize(many_m_n(min, max, one_of("0123456789")))(input)
+fn single_decimal(input: &str) -> IResult<&str, char> {
+    ws(one_of("0123456789"))(input)
+}
+
+fn decimal<T>(input: &str, min: usize, max: usize) -> IResult<&str, T>
+where
+    T: FromStr,
+    <T as std::str::FromStr>::Err: std::fmt::Debug,
+{
+    let (remainning, (_, chars)) = consumed(many_m_n(min, max, single_decimal))(input)?;
+    let output = String::from_iter(chars);
+    Ok((remainning, output.parse().expect("parsing to succeed")))
+}
+
+fn dice_seperator(input: &str) -> IResult<&str, char> {
+    let (remaining, (_, separator)) = ws(consumed(one_of("dD")))(input)?;
+    Ok((remaining, separator))
+}
+
+fn modifier_separator(input: &str) -> IResult<&str, char> {
+    let (remaining, (_, separator)) = ws(consumed(one_of("+-")))(input)?;
+    Ok((remaining, separator))
 }
 
 #[derive(Error, Debug, PartialEq)]
@@ -39,9 +67,7 @@ impl<'a> From<nom::error::Error<&'a str>> for ParseRollError {
 }
 
 fn parse_roll_inner(input: &str) -> IResult<&str, RollSettings> {
-    let digits = |i| decimal(i, 1, 4);
-    let dice_seperator = one_of("dD");
-    let modifier_separator = one_of("+-");
+    let digits = |i| decimal::<u32>(i, 1, 4);
 
     log::debug!("Parsing input: {}", input);
     let (remaining, (number, _, sides)) = (&digits, &dice_seperator, &digits).parse(input)?;
@@ -68,8 +94,6 @@ fn parse_roll_inner(input: &str) -> IResult<&str, RollSettings> {
     };
 
     // Convert to integers
-    let sides = sides.parse::<u32>().expect("to parse");
-    let number = number.parse::<u32>().expect("to parse");
     let modifier = modifier.map(|modifier| {
         format!("{}{}", modifier_sign.expect("to be some"), modifier)
             .parse::<i32>()
@@ -146,22 +170,48 @@ pub(crate) fn parse_roll(input: &str) -> Result<RollSettings, ParseRollError> {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
     use super::*;
     use crate::dice::*;
 
     #[test]
+    fn single_decimal_parses_correctly() {
+        let cases = [("1", '1'), (" 1", '1'), ("1  ", '1'), ("   1   ", '1')];
+        for (input, expected) in cases {
+            // println!("Test case: {:?} Expected {:?}", input, expected);
+            let (remaining, actual) = single_decimal(input).finish().unwrap();
+            assert_eq!(actual, expected);
+            assert!(remaining.is_empty());
+        }
+    }
+
+    #[test]
+    fn decimal_parses_correctly() {
+        let cases = [
+            ("123456", 123456),
+            (" 123456", 123456),
+            ("123456 ", 123456),
+            ("1 234 56", 123456),
+        ];
+        for (input, expected) in cases {
+            // println!("Test case: {:?} Expected {:?}", input, expected);
+            let (remaining, actual): (_, u32) = decimal(input, 1, 10).finish().unwrap();
+            assert_eq!(actual, expected);
+            assert!(remaining.is_empty());
+        }
+    }
+
+    #[test]
     fn parses_correctly() {
         let cases = [
-            // (
-            //     "1d20",
-            //     Ok(RollSettings {
-            //         number: 1,
-            //         sides: 20,
-            //         modifier: None,
-            //     }),
-            // ),
+            (
+                "1d20",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: None,
+                    label: None,
+                }),
+            ),
             (
                 "1d20+3",
                 Ok(RollSettings {
@@ -210,12 +260,12 @@ mod tests {
             // too many dices
             (
                 "100000d20",
-                Err(ParseRollError::ParseError("100000d20".to_string())),
+                Err(ParseRollError::ParseError("error OneOf at: 00d20".to_string())),
             ),
             // too many sides
             (
                 "1d100000",
-                Err(ParseRollError::ParseError("1d100000".to_string())),
+                Err(ParseRollError::ParseError("error OneOf at: 00".to_string())),
             ),
             // modifier too big
             (
@@ -239,7 +289,7 @@ mod tests {
         ];
 
         for (input, expected) in cases {
-            println!("Test case: {:?} Expected {:?}", input, expected);
+            // println!("Test case: {:?} Expected {:?}", input, expected);
             let actual = RollSettings::from_str(input);
             match expected {
                 Ok(expected) => {
