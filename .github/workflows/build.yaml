@@ -25,8 +25,8 @@ jobs:
             flags:
           - target: aarch64-unknown-linux-musl
             flags:
-          - target: armv7-unknown-linux-gnueabihf
-            flags:
+          # - target: armv7-unknown-linux-gnueabihf
+          #   flags:
           - target: armv7-unknown-linux-musleabihf
             flags:
     steps:
@@ -85,7 +85,7 @@ jobs:
       - name: 'Echo download path'
         run: |
           chmod +x builds/**/*/telegram-dice-maestro-oxide
-          tree builds/
+          tree -p builds/
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
