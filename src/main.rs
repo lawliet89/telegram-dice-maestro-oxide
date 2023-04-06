@@ -1,4 +1,5 @@
 mod dice;
+mod utils;
 
 use std::str::FromStr;
 
