@@ -1,4 +1,5 @@
 mod dice;
+mod parser;
 
 use std::str::FromStr;
 
