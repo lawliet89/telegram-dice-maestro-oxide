@@ -229,6 +229,16 @@ mod tests {
                 "1d20+10000000",
                 Err(ParseRollError::InvalidFormat("1d20+10000000".to_string())),
             ),
+            // zero dice
+            (
+                "0d20+2",
+                Err(ParseRollError::CannotBeZero("0d20+2".to_string())),
+            ),
+            // zero sided dice
+            (
+                "1d0+2",
+                Err(ParseRollError::CannotBeZero("1d0+2".to_string())),
+            ),
         ];
 
         for (input, expected) in cases {
