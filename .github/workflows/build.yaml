@@ -84,7 +84,7 @@ jobs:
 
       - name: 'Echo download path'
         run: |
-          chmod +x builds/**/*/telegram-dice-maestro-oxide
+          find . -name "telegram-dice-maestro-oxide" -exec chmod +x {} \;
           tree -p builds/
 
       - name: Set up QEMU
