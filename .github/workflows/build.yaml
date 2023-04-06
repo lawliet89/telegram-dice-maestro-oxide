@@ -39,7 +39,6 @@ jobs:
         with:
           use-cross: true
           command: test
-          args: -- -D warnings
 
   build:
     name: Build
