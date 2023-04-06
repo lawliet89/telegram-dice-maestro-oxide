@@ -28,6 +28,10 @@ struct Args {
     /// Bot token. **Highly recommended that this is not set via command line, because it will show up in running processes.**
     #[arg(long, env, required_unless_present("bot_token_file"))]
     bot_token: Option<String>,
+
+    /// Set bot commands on startup
+    #[arg(long, env)]
+    set_my_commands: bool,
 }
 
 #[derive(BotCommands, Clone, PartialEq)]
@@ -41,24 +45,26 @@ enum Command {
     #[command(description = "Roll die.")]
     Roll(String),
     #[command(description = "Roll die, and send data output")]
-    RollWithData(String),
-    #[command(description = "Roll die, and send data output")]
     Data(String),
     #[command(description = "Roll with advantage")]
     Adv(String),
     #[command(description = "Roll with advantage")]
-    RollWithAdvantage(String),
+    Advantage(String),
+    #[command(description = "Roll with advantage, and send data output")]
+    AdvantageData(String),
     #[command(description = "Roll with disadvantage")]
     Dis(String),
     #[command(description = "Roll with disadvantage")]
-    RollWithDisadvantage(String),
+    Disadvantage(String),
+    #[command(description = "Roll with disadvantage, and send data output")]
+    DisadvantageData(String),
 }
 
-fn get_token(args: Args) -> anyhow::Result<String> {
-    if let Some(key) = args.bot_token {
-        return Ok(key);
+fn get_token(args: &Args) -> anyhow::Result<String> {
+    if let Some(key) = args.bot_token.as_ref() {
+        return Ok(key.clone());
     }
-    if let Some(file) = args.bot_token_file {
+    if let Some(file) = args.bot_token_file.as_ref() {
         return Ok(std::fs::read_to_string(file)?.trim().to_string());
     }
     Err(anyhow!("No API Key provided"))
@@ -75,14 +81,20 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<(
         Command::Roll(input) => {
             handle_roll(bot, msg, input.as_str(), &RollType::Straight, false).await?
         }
-        Command::RollWithData(input) | Command::Data(input) => {
+        Command::Data(input) => {
             handle_roll(bot, msg, input.as_str(), &RollType::Straight, true).await?
         }
-        Command::RollWithAdvantage(input) | Command::Adv(input) => {
+        Command::Advantage(input) | Command::Adv(input) => {
             handle_roll(bot, msg, input.as_str(), &RollType::Advantage, false).await?
         }
-        Command::RollWithDisadvantage(input) | Command::Dis(input) => {
+        Command::AdvantageData(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, true).await?
+        }
+        Command::Disadvantage(input) | Command::Dis(input) => {
             handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, false).await?
+        }
+        Command::DisadvantageData(input) => {
+            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, true).await?
         }
     };
 
@@ -162,14 +174,20 @@ async fn main() -> anyhow::Result<()> {
         .init();
     let args = Args::parse();
     log::info!("Reading token...");
-    let token = get_token(args)?;
+    let token = get_token(&args)?;
     let bot = Bot::new(token)
         .cache_me()
         .throttle(Default::default())
         .parse_mode(ParseMode::Html);
 
-    log::info!("Starting dicer roller bot...");
+    log::info!("Starting die rolling bot...");
     log::info!("Running as: {:?}", bot.get_me().await?);
+
+    if args.set_my_commands {
+        let commands = Command::bot_commands();
+        log::info!("Setting bot commands: {:?}", commands);
+        bot.set_my_commands(commands).await?;
+    }
 
     Command::repl(bot, answer).await;
     Ok(())
