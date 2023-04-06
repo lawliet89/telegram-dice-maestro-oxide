@@ -1,17 +1,15 @@
 use std::str::FromStr;
 
-use lazy_static::lazy_static;
 use nom::{
     character::complete::multispace0,
     character::complete::one_of,
-    combinator::{consumed, recognize},
+    combinator::consumed,
     error::ParseError,
-    multi::many_m_n,
+    multi::{many1, many_m_n},
     sequence::delimited,
     sequence::Tuple,
     Finish, IResult,
 };
-use regex::Regex;
 use thiserror::Error;
 
 use crate::dice::RollSettings;
@@ -58,6 +56,8 @@ pub(crate) enum ParseRollError {
     ParseError(String),
     #[error("Number of dices and dice sides cannot be zero: {0}")]
     CannotBeZero(String),
+    #[error("Input parameter is too big")]
+    TooBig,
 }
 
 impl<'a> From<nom::error::Error<&'a str>> for ParseRollError {
@@ -75,47 +75,49 @@ fn parse_roll_inner(input: &str) -> IResult<&str, RollSettings> {
     log::debug!("Parsed Number: {:?}", number);
     log::debug!("Parsed Remaining: {}", remaining);
 
-    let (remaining, modifier_sign, modifier) = if !remaining.trim().is_empty() {
-        let (remaining, (modifier_sign, modifier)) =
-            (&modifier_separator, &digits).parse(remaining.trim())?;
-        log::debug!("Modifier Sign: {:?}", modifier_sign);
-        log::debug!("Modifier: {:?}", modifier);
-        log::debug!("Remaining: {}", remaining);
+    let modifier_parse = (&modifier_separator, &digits).parse(remaining);
 
-        let remaining = if remaining.is_empty() {
-            None
-        } else {
-            Some(remaining)
-        };
+    let (remaining, modifier) = match modifier_parse {
+        Ok((remaining, (modifier_sign, modifier))) => {
+            log::debug!("Modifier Sign: {:?}", modifier_sign);
+            log::debug!("Modifier: {:?}", modifier);
+            log::debug!("Remaining: {}", remaining);
+            // Parse modifier
+            let modifier = format!("{}{}", modifier_sign, modifier)
+                .parse::<i32>()
+                .expect("to parse");
 
-        (remaining, Some(modifier_sign), Some(modifier))
-    } else {
-        (None, None, None)
+            (remaining, Some(modifier))
+        }
+        Err(_) => (remaining, None),
     };
 
-    // Convert to integers
-    let modifier = modifier.map(|modifier| {
-        format!("{}{}", modifier_sign.expect("to be some"), modifier)
-            .parse::<i32>()
-            .expect("to parse")
-    });
-
     Ok((
-        "",
+        remaining,
         RollSettings {
             sides,
             number,
             modifier,
-            label: remaining.map(|s| s.to_string()),
+            label: None,
         },
     ))
 }
 
 pub(crate) fn parse_roll(input: &str) -> Result<RollSettings, ParseRollError> {
-    let (remaining, result) = parse_roll_inner(input).finish()?;
+    let (remaining, mut result) = parse_roll_inner(input).finish()?;
 
     if result.number == 0 || result.sides == 0 {
         Err(ParseRollError::CannotBeZero(input.to_string()))?
+    }
+
+    // Check remaining text is not "overflow" digits
+    if consumed(consumed(many1(single_decimal)))(remaining).is_ok() {
+        Err(ParseRollError::TooBig)?;
+    }
+
+    let remaining = remaining.trim();
+    if !remaining.is_empty() {
+        result.label = Some(remaining.to_string());
     }
 
     Ok(result)
@@ -249,6 +251,42 @@ mod tests {
                 }),
             ),
             (
+                "1d20 Wisdom saving throw",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: None,
+                    label: Some("Wisdom saving throw".to_string()),
+                }),
+            ),
+            (
+                "1d20Wisdom saving throw",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: None,
+                    label: Some("Wisdom saving throw".to_string()),
+                }),
+            ),
+            (
+                "1d20+1 Wisdom saving throw",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: Some(1),
+                    label: Some("Wisdom saving throw".to_string()),
+                }),
+            ),
+            (
+                "1d20+1Wisdom saving throw",
+                Ok(RollSettings {
+                    number: 1,
+                    sides: 20,
+                    modifier: Some(1),
+                    label: Some("Wisdom saving throw".to_string()),
+                }),
+            ),
+            (
                 "9999d9999+3",
                 Ok(RollSettings {
                     number: 9999,
@@ -260,18 +298,14 @@ mod tests {
             // too many dices
             (
                 "100000d20",
-                Err(ParseRollError::ParseError("error OneOf at: 00d20".to_string())),
+                Err(ParseRollError::ParseError(
+                    "error OneOf at: 00d20".to_string(),
+                )),
             ),
             // too many sides
-            (
-                "1d100000",
-                Err(ParseRollError::ParseError("error OneOf at: 00".to_string())),
-            ),
+            ("1d100000", Err(ParseRollError::TooBig)),
             // modifier too big
-            (
-                "1d20+10000000",
-                Err(ParseRollError::ParseError("1d20+10000000".to_string())),
-            ),
+            ("1d20+10000000", Err(ParseRollError::TooBig)),
             // zero dice
             (
                 "0d20+2",
@@ -284,7 +318,9 @@ mod tests {
             ),
             (
                 "rubbish",
-                Err(ParseRollError::ParseError("rubbish".to_string())),
+                Err(ParseRollError::ParseError(
+                    "error OneOf at: rubbish".to_string(),
+                )),
             ),
         ];
 

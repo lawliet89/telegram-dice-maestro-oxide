@@ -96,6 +96,9 @@ impl<'a> Roll<'a> {
 
 impl<'a> std::fmt::Display for Roll<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(ref label) = self.settings.label {
+            writeln!(f, "<u>{}</u>", label)?;
+        }
         writeln!(f, "Parameters: {}", self.settings)?;
 
         // https://stackoverflow.com/questions/68768069/telegram-error-badrequest-entities-too-long-error-when-trying-to-send-long-ma
@@ -198,9 +201,12 @@ impl<'a> std::fmt::Display for RollResults<'a> {
             RollType::Straight => self.try_one.fmt(f),
             RollType::Advantage | RollType::Disadvantage => {
                 let results_index = self.results_index();
+                if let Some(ref label) = self.settings.label {
+                    writeln!(f, "<u>{}</u>", label)?;
+                }
                 writeln!(
                     f,
-                    "Parameters: {} with <u>{}</u>",
+                    "Parameters: {} with <i>{}</i>",
                     self.settings, self.roll_type
                 )?;
                 let attempt_one = format!("Attempt one: {}", self.try_one.format_roll(Some(2000)));
