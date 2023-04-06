@@ -255,11 +255,11 @@ where
             Regex::new(r"^([0-9]{1,4})(d|D)([0-9]{1,4})([+-][0-9]{1,4})?$").unwrap();
     }
     log::trace!("Cleaning raw input {}", &input);
-    let stripped: String = input.chars().filter(|c| !c.is_whitespace()).collect();
+    let stripped = input.trim();
     log::info!("Parsing input {}", &input);
     let captures = RE.captures(&stripped).ok_or_else(|| {
         log::warn!("Regex match failure for {}", &input);
-        ParseRollError::InvalidFormat(stripped.clone())
+        ParseRollError::InvalidFormat(stripped.to_string())
     })?;
 
     // 1d20+4
@@ -287,7 +287,7 @@ where
         .map(|res| res.as_str().parse::<i32>().expect("to be integer"));
 
     if number == 0 || sides == 0 {
-        Err(ParseRollError::CannotBeZero(stripped))?
+        Err(ParseRollError::CannotBeZero(stripped.to_string()))?
     }
 
     Ok((number, sides, modifier))
