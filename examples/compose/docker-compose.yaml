@@ -1,0 +1,4 @@
+services:
+  bot:
+    image: ghcr.io/lawliet89/telegram-dice-maestro-oxide:latest
+    env_file: compose.env
