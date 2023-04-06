@@ -4,12 +4,12 @@ use std::str::FromStr;
 use rand::distributions::{Distribution, Uniform};
 use serde::Serialize;
 
-
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RollSettings {
     pub number: u32,
     pub sides: u32,
     pub modifier: Option<i32>,
+    pub label: Option<String>,
 }
 
 impl RollSettings {
@@ -41,12 +41,7 @@ impl FromStr for RollSettings {
     type Err = crate::parser::ParseRollError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let (number, sides, modifier) = crate::parser::parse_roll(input)?;
-        Ok(Self {
-            number,
-            sides,
-            modifier,
-        })
+        crate::parser::parse_roll(input)
     }
 }
 
