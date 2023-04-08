@@ -1,4 +1,6 @@
+mod cli;
 mod dice;
+mod dnd;
 mod parser;
 
 use std::str::FromStr;
@@ -12,28 +14,6 @@ use teloxide::types::{InputFile, ParseMode};
 use teloxide::utils::command::BotCommands;
 
 use dice::*;
-
-/// Telegram bot to roll die!
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// Path to file containing Telegram Bot Token
-    #[arg(
-        long,
-        env,
-        conflicts_with("bot_token"),
-        required_unless_present("bot_token")
-    )]
-    bot_token_file: Option<String>,
-
-    /// Bot token. **Highly recommended that this is not set via command line, because it will show up in running processes.**
-    #[arg(long, env, required_unless_present("bot_token_file"))]
-    bot_token: Option<String>,
-
-    /// Set bot commands on startup
-    #[arg(long, env)]
-    set_my_commands: bool,
-}
 
 #[derive(BotCommands, Clone, PartialEq)]
 #[command(
@@ -61,11 +41,15 @@ enum Command {
     DisadvantageData(String),
 }
 
-fn get_token(args: &Args) -> anyhow::Result<String> {
-    if let Some(key) = args.bot_token.as_ref() {
-        return Ok(key.clone());
+fn get_token<S1, S2>(token: Option<S1>, file: Option<S2>) -> anyhow::Result<String>
+where
+    S1: std::string::ToString,
+    S2: AsRef<std::path::Path>,
+{
+    if let Some(token) = token.as_ref() {
+        return Ok(token.to_string());
     }
-    if let Some(file) = args.bot_token_file.as_ref() {
+    if let Some(file) = file.as_ref() {
         return Ok(std::fs::read_to_string(file)?.trim().to_string());
     }
     Err(anyhow!("No API Key provided"))
@@ -168,14 +152,9 @@ async fn handle_roll(
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    pretty_env_logger::formatted_timed_builder()
-        .filter_level(log::LevelFilter::Info)
-        .init();
-    let args = Args::parse();
+async fn run_bot(args: &cli::RunArgs) -> anyhow::Result<()> {
     log::info!("Reading token...");
-    let token = get_token(&args)?;
+    let token = get_token(args.bot_token_file.as_ref(), args.bot_token.as_ref())?;
     let bot = Bot::new(token)
         .cache_me()
         .throttle(Default::default())
@@ -191,5 +170,37 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Command::repl(bot, answer).await;
+    Ok(())
+}
+
+async fn load_character_data(path: &str) -> anyhow::Result<()> {
+    let (ok, err) = dnd::Character::load_from_pattern(path)?;
+    for character in ok {
+        log::info!("Loaded {:#?}", character);
+    }
+    for error in err {
+        log::error!("{:#?}", error);
+    }
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    pretty_env_logger::formatted_timed_builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
+    let cli = cli::Cli::parse();
+    log::debug!("Command line: {:?}", cli);
+
+    match cli.command {
+        None => {
+            println!("{:?}", cli);
+        }
+        Some(cli::Command::Run(args)) => {
+            run_bot(&args).await?;
+        }
+        Some(cli::Command::LoadCharacterData { path }) => load_character_data(&path).await?,
+    }
+
     Ok(())
 }
