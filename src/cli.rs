@@ -43,4 +43,8 @@ pub struct RunArgs {
     /// Set bot commands on startup
     #[arg(long, env)]
     pub set_my_commands: bool,
+
+    /// Path to data storage file
+    #[arg(long, env, default_value("storage.db"))]
+    pub storage_path: String,
 }

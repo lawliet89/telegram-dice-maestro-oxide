@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::BufReader;
@@ -11,8 +10,8 @@ use serde_aux::field_attributes::deserialize_number_from_string;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-pub struct Character<'a> {
-    name: Cow<'a, str>,
+pub struct Character {
+    name: String,
 
     attribute_modifiers: AttributeModifiers<i8>,
     saving_throw_modifiers: AttributeModifiers<i8>,
@@ -99,7 +98,7 @@ where
     survival: T,
 }
 
-impl<'a> Character<'a> {
+impl Character {
     pub fn from_json_file<P>(path: P) -> anyhow::Result<Self>
     where
         P: AsRef<std::path::Path> + std::fmt::Debug,
