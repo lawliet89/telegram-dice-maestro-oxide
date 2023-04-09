@@ -16,5 +16,5 @@ pub struct User {
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct Storage {
-    user_characters: HashMap<i64, User>
+    user_characters: HashMap<i64, User>,
 }
