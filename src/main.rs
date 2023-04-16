@@ -155,14 +155,14 @@ async fn handle_roll(
 
 async fn run_bot(args: &cli::RunArgs) -> anyhow::Result<()> {
     log::info!("Reading token...");
-    let token = get_token(args.bot_token_file.as_ref(), args.bot_token.as_ref())?;
+    let token = get_token(args.bot_token.as_ref(), args.bot_token_file.as_ref())?;
     let bot = Bot::new(token)
         .cache_me()
         .throttle(Default::default())
         .parse_mode(ParseMode::Html);
 
     log::info!("Starting die rolling bot...");
-    log::info!("Running as: {:?}", bot.get_me().await?);
+    log::info!("Running as: {:#?}", bot.get_me().await?);
 
     if args.set_my_commands {
         let commands = Command::bot_commands();
@@ -170,7 +170,21 @@ async fn run_bot(args: &cli::RunArgs) -> anyhow::Result<()> {
         bot.set_my_commands(commands).await?;
     }
 
-    Command::repl(bot, answer).await;
+    let handler = Update::filter_message()
+        .branch(dptree::entry().filter_command::<Command>().endpoint(answer));
+
+    Dispatcher::builder(bot, handler)
+        .default_handler(|update| async move {
+            log::warn!("Unhandled update {:?}", update);
+        })
+        .error_handler(LoggingErrorHandler::with_custom_text(
+            "An error has occurred in the dispatcher",
+        ))
+        .enable_ctrlc_handler()
+        .build()
+        .dispatch()
+        .await;
+
     Ok(())
 }
 
