@@ -18,7 +18,7 @@ serde-aux = { version = "4.2.0", default-features = false }
 serde_json = "1.0.95"
 teloxide = { version = "0.12", features = ["macros", "cache-me", "throttle", "ctrlc_handler"], default-features = false }
 thiserror = "1.0.40"
-tokio = { version =  "1.8", features = ["rt-multi-thread", "macros"] }
+tokio = { version =  "1.28", features = ["rt-multi-thread", "macros"] }
 
 [features]
 default = ["rustls"]
