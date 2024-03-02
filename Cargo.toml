@@ -17,7 +17,7 @@ serde = { version = "1.0.171", features = ["derive"] }
 serde-aux = { version = "4.2.0", default-features = false }
 serde_json = "1.0.99"
 teloxide = { version = "0.12", features = ["macros", "cache-me", "throttle", "ctrlc_handler"], default-features = false }
-thiserror = "1.0.40"
+thiserror = "1.0.57"
 tokio = { version =  "1.29", features = ["rt-multi-thread", "macros"] }
 
 [features]
