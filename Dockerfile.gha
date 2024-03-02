@@ -7,4 +7,4 @@ LABEL org.opencontainers.image.licenses=Apache-2.0
 ARG TARGETPLATFORM
 COPY builds/${TARGETPLATFORM}/telegram-dice-maestro-oxide /
 
-CMD ["/telegram-dice-maestro-oxide"]
+CMD ["/telegram-dice-maestro-oxide", "run"]
