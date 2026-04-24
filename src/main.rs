@@ -11,7 +11,7 @@ use clap::Parser;
 use teloxide::adaptors::{CacheMe, DefaultParseMode, Throttle};
 use teloxide::prelude::*;
 use teloxide::requests::RequesterExt;
-use teloxide::types::{InputFile, ParseMode};
+use teloxide::types::{InputFile, ParseMode, ReplyParameters};
 use teloxide::utils::command::BotCommands;
 
 use dice::*;
@@ -98,12 +98,12 @@ async fn handle_roll(
     match input {
         "" => {
             bot.send_dice(msg.chat.id)
-                .reply_to_message_id(msg.id)
+                .reply_parameters(ReplyParameters::new(msg.id))
                 .await?;
         }
         "eye" | "eyes" | "👀" | "👁" | "👁‍🗨" => {
             bot.send_message(msg.chat.id, silly_text)
-                .reply_to_message_id(msg.id)
+                .reply_parameters(ReplyParameters::new(msg.id))
                 .await?;
         }
         input => {
@@ -114,7 +114,7 @@ async fn handle_roll(
                     log::debug!("Dice roll: {:?}", results);
                     let roll_msg = bot
                         .send_message(msg.chat.id, results.to_string())
-                        .reply_to_message_id(msg.id)
+                        .reply_parameters(ReplyParameters::new(msg.id))
                         .await?;
                     if send_json {
                         match serde_json::to_string_pretty(&results) {
@@ -124,7 +124,7 @@ async fn handle_roll(
                                     InputFile::memory(output_json.into_bytes())
                                         .file_name("roll.json"),
                                 )
-                                .reply_to_message_id(roll_msg.id)
+                                .reply_parameters(ReplyParameters::new(roll_msg.id))
                                 .await?;
                             }
                             Err(e) => {
@@ -132,7 +132,7 @@ async fn handle_roll(
                         msg.chat.id,
                         format!("Could not convert results to JSON. This is a bug in the bot.\n\n<code>{}</code>", e),
                     )
-                    .reply_to_message_id(msg.id)
+                    .reply_parameters(ReplyParameters::new(msg.id))
                     .await?;
                             }
                         }
@@ -144,7 +144,7 @@ async fn handle_roll(
                         msg.chat.id,
                         format!("{} \n\nIn other words, it is likely you have made a mistake and I definitely cannot help you to fix it. Try again!\n\n💣 <code>{}</code> 💣", silly_text, e),
                     )
-                    .reply_to_message_id(msg.id)
+                    .reply_parameters(ReplyParameters::new(msg.id))
                     .await?;
                 }
             }
