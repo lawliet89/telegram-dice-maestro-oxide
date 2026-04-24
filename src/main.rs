@@ -2,7 +2,6 @@ mod cli;
 mod dice;
 mod dnd;
 mod parser;
-mod storage;
 
 use std::str::FromStr;
 
