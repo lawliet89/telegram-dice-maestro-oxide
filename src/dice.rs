@@ -289,7 +289,7 @@ mod tests {
             "Expected '...' in truncated output, got: {truncated}"
         );
         // Output format is "(inner)modifier". With no modifier the inner string
-        // (between the parens) must be at most limit + 3 bytes ("…" adds 3 chars).
+        // (between the parens) must be at most limit + 3 bytes ("..." appends 3 ASCII bytes).
         let inner_len = truncated.len() - 2; // strip the two surrounding parens
         assert!(
             inner_len <= limit + 3,
