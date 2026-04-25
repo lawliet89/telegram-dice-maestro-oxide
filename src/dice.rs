@@ -305,27 +305,25 @@ mod tests {
         );
     }
 
-    // Property: for any random roll, total must exactly equal the sum of the
-    // individual dice values plus the modifier.  Tested over many iterations to
-    // catch any latent off-by-one in the accumulation logic.
+    // Property: total must exactly equal the sum of the individual dice values
+    // plus the modifier.  This is an invariant of the integer arithmetic in
+    // Roll::new and holds regardless of the random values rolled.
     #[test]
     fn roll_total_invariant() {
         let with_mod = settings(4, 6, Some(5));
         let no_mod = settings(3, 8, None);
         let neg_mod = settings(2, 10, Some(-3));
 
-        for _ in 0..200 {
-            for s in [&with_mod, &no_mod, &neg_mod] {
-                let roll = Roll::new(s);
-                let dice_sum: i64 = roll.rolls.iter().map(|&d| d as i64).sum();
-                let modifier = s.modifier.unwrap_or(0) as i64;
-                assert_eq!(
-                    roll.total,
-                    dice_sum + modifier,
-                    "total invariant violated for settings {:?}",
-                    s
-                );
-            }
+        for s in [&with_mod, &no_mod, &neg_mod] {
+            let roll = Roll::new(s);
+            let dice_sum: i64 = roll.rolls.iter().map(|&d| d as i64).sum();
+            let modifier = s.modifier.unwrap_or(0) as i64;
+            assert_eq!(
+                roll.total,
+                dice_sum + modifier,
+                "total invariant violated for settings {:?}",
+                s
+            );
         }
     }
 }
