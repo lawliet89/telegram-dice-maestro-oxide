@@ -51,7 +51,7 @@ jobs:
           command: build
           args:  ${{ steps.release_flag.outputs.value }} --target ${{ inputs.target }} ${{ inputs.cargo_flags }}
       - name: Upload binary artifact (release)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ inputs.release }}
         with:
           name: ${{ inputs.target }}
@@ -59,7 +59,7 @@ jobs:
             target/${{ inputs.target }}/release/telegram-dice-maestro-oxide*
 
       - name: Upload binary artifact (debug)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ !inputs.release }}
         with:
           name: ${{ inputs.target }}
