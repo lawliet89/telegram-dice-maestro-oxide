@@ -26,32 +26,34 @@ jobs:
   build:
     name: Build
     runs-on: ${{ inputs.runs_on }}
+    permissions:
+      contents: read
     steps:
-      - uses: haya14busa/action-cond@d0c3785880c08a358711ee8047f593cbcf1cdcfd # v1
+      - uses: haya14busa/action-cond@v1
         id: release_flag
         with:
           cond: ${{ inputs.release }}
           if_true: "--release"
           if_false: ""
 
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
-      - uses: actions-rs/toolchain@63eb9591781c46a70274cb3ebdf190fce92702e8 # v1
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: ${{ inputs.target }}
           override: true
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+      - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: ${{ inputs.target }}${{ steps.release_flag.outputs.value }}
 
-      - uses: actions-rs/cargo@e7f754b8e09f70ad8eb2c5aebf61e58e8403b210 # v1
+      - uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
           args:  ${{ steps.release_flag.outputs.value }} --target ${{ inputs.target }} ${{ inputs.cargo_flags }}
       - name: Upload binary artifact (release)
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@v4
         if: ${{ inputs.release }}
         with:
           name: ${{ inputs.target }}
@@ -59,7 +61,7 @@ jobs:
             target/${{ inputs.target }}/release/telegram-dice-maestro-oxide*
 
       - name: Upload binary artifact (debug)
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@v4
         if: ${{ !inputs.release }}
         with:
           name: ${{ inputs.target }}
