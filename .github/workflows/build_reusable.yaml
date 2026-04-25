@@ -26,6 +26,8 @@ jobs:
   build:
     name: Build
     runs-on: ${{ inputs.runs_on }}
+    permissions:
+      contents: read
     steps:
       - uses: haya14busa/action-cond@v1
         id: release_flag
