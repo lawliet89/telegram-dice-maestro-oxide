@@ -126,11 +126,20 @@ mod tests {
     use super::*;
 
     fn settings(number: u32, sides: u32, modifier: Option<i32>) -> RollSettings {
-        RollSettings { number, sides, modifier, label: None }
+        RollSettings {
+            number,
+            sides,
+            modifier,
+            label: None,
+        }
     }
 
     fn fixed_roll(s: &RollSettings, rolls: Vec<u32>, total: i64) -> Roll<'_> {
-        Roll { rolls, total, settings: s }
+        Roll {
+            rolls,
+            total,
+            settings: s,
+        }
     }
 
     // Advantage must always return the higher of the two rolls.
