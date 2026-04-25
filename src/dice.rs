@@ -265,17 +265,27 @@ mod tests {
 
     // Long roll results must be capped so that the Telegram HTML entity limit
     // is respected.  The truncated section must end with "..." so users know
-    // output was cut.
+    // output was cut, and the results portion must not exceed the requested limit.
     #[test]
     fn format_roll_truncates_long_result_with_ellipsis() {
-        let s = settings(1, 6, None);
-        // 60 dice all showing "1" → "1 + 1 + 1 + …" (~240 chars)
+        // settings.number matches the number of dice we actually pass in.
+        let s = settings(60, 6, None);
+        // 60 dice all showing "1" → "1 + 1 + 1 + …" (~240 chars before truncation)
         let roll = fixed_roll(&s, vec![1; 60], 60);
 
-        let truncated = roll.format_roll(Some(20));
+        let limit = 20usize;
+        let truncated = roll.format_roll(Some(limit));
         assert!(
             truncated.contains("..."),
             "Expected '...' in truncated output, got: {truncated}"
+        );
+        // Output format is "(inner)modifier". With no modifier the inner string
+        // (between the parens) must be at most limit + 3 bytes ("…" adds 3 chars).
+        let inner_len = truncated.len() - 2; // strip the two surrounding parens
+        assert!(
+            inner_len <= limit + 3,
+            "Inner results length {inner_len} exceeds limit + len('...') = {}",
+            limit + 3
         );
 
         // Without a truncation limit the same roll must NOT add ellipsis.
