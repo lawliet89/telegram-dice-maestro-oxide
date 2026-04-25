@@ -128,11 +128,11 @@ async fn handle_roll(
                             }
                             Err(e) => {
                                 bot.send_message(
-                        msg.chat.id,
-                        format!("Could not convert results to JSON. This is a bug in the bot.\n\n<code>{}</code>", e),
-                    )
-                    .reply_parameters(ReplyParameters::new(msg.id))
-                    .await?;
+                                    msg.chat.id,
+                                    format!("Could not convert results to JSON. This is a bug in the bot.\n\n<code>{}</code>", e),
+                                )
+                                .reply_parameters(ReplyParameters::new(msg.id))
+                                .await?;
                             }
                         }
                         // bot.send_document(msg.chat.id, document)
