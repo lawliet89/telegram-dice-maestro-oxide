@@ -102,11 +102,6 @@ jobs:
         with:
           name: x86_64-unknown-linux-musl
           path: builds/linux/amd64
-      # armv7hf Linux MUSL
-      - uses: actions/download-artifact@v4
-        with:
-          name: armv7-unknown-linux-musleabihf
-          path: builds/linux/arm/v7
       # arch64 Linux MUSL
       - uses: actions/download-artifact@v4
         with:
@@ -151,7 +146,7 @@ jobs:
         with:
           context: .
           # Ref: https://github.com/containerd/containerd/blob/main/platforms/platforms.go
-          platforms: linux/amd64,linux/arm/v7,linux/arm64
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
