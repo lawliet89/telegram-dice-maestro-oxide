@@ -44,9 +44,10 @@ where
 mod tests {
     use super::*;
 
-    // Each call for the same user operates on the same map entry — not a new one.
+    // Multiple calls for the same user_id create exactly one entry in the store,
+    // not a new entry per call.
     #[tokio::test]
-    async fn same_user_shares_rng_state() {
+    async fn same_user_creates_single_store_entry() {
         let store = new_store();
         let uid = Some(UserId(42));
 
