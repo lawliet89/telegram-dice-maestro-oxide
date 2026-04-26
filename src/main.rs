@@ -59,11 +59,17 @@ where
 
 type AdaptedBot = DefaultParseMode<Throttle<CacheMe<Bot>>>;
 
+#[derive(Clone)]
+struct BotSettings {
+    use_global_rng: bool,
+}
+
 async fn answer(
     bot: AdaptedBot,
     msg: Message,
     cmd: Command,
     store: UserStore,
+    bot_settings: BotSettings,
 ) -> ResponseResult<()> {
     match cmd {
         Command::Help => {
@@ -71,10 +77,28 @@ async fn answer(
                 .await?;
         }
         Command::Roll(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Straight, false, &store).await?
+            handle_roll(
+                bot,
+                msg,
+                input.as_str(),
+                &RollType::Straight,
+                false,
+                &store,
+                &bot_settings,
+            )
+            .await?
         }
         Command::Data(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Straight, true, &store).await?
+            handle_roll(
+                bot,
+                msg,
+                input.as_str(),
+                &RollType::Straight,
+                true,
+                &store,
+                &bot_settings,
+            )
+            .await?
         }
         Command::Advantage(input) | Command::Adv(input) => {
             handle_roll(
@@ -84,11 +108,21 @@ async fn answer(
                 &RollType::Advantage,
                 false,
                 &store,
+                &bot_settings,
             )
             .await?
         }
         Command::AdvantageData(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, true, &store).await?
+            handle_roll(
+                bot,
+                msg,
+                input.as_str(),
+                &RollType::Advantage,
+                true,
+                &store,
+                &bot_settings,
+            )
+            .await?
         }
         Command::Disadvantage(input) | Command::Dis(input) => {
             handle_roll(
@@ -98,6 +132,7 @@ async fn answer(
                 &RollType::Disadvantage,
                 false,
                 &store,
+                &bot_settings,
             )
             .await?
         }
@@ -109,6 +144,7 @@ async fn answer(
                 &RollType::Disadvantage,
                 true,
                 &store,
+                &bot_settings,
             )
             .await?
         }
@@ -124,6 +160,7 @@ async fn handle_roll(
     roll_type: &RollType,
     send_json: bool,
     store: &UserStore,
+    bot_settings: &BotSettings,
 ) -> ResponseResult<()> {
     let silly_text =  "As a non-language non-model, I just spit out what was written in my code and I can never vary.";
     match input {
@@ -141,11 +178,15 @@ async fn handle_roll(
             let settings = RollSettings::from_str(input);
             match settings {
                 Ok(settings) => {
-                    let user_id = msg.from.as_ref().map(|u| u.id);
-                    let results = user::with_user_rng(store, user_id, |rng| {
-                        RollResults::new(&settings, roll_type, rng)
-                    })
-                    .await;
+                    let results = if bot_settings.use_global_rng {
+                        RollResults::new(&settings, roll_type, &mut rand::thread_rng())
+                    } else {
+                        let user_id = msg.from.as_ref().map(|u| u.id);
+                        user::with_user_rng(store, user_id, |rng| {
+                            RollResults::new(&settings, roll_type, rng)
+                        })
+                        .await
+                    };
                     log::debug!("Dice roll: {:?}", results);
                     let roll_msg = bot
                         .send_message(msg.chat.id, results.to_string())
@@ -197,6 +238,9 @@ async fn run_bot(args: &cli::RunArgs) -> anyhow::Result<()> {
         .parse_mode(ParseMode::Html);
 
     let store = user::new_store();
+    let settings = BotSettings {
+        use_global_rng: args.use_global_rng,
+    };
 
     log::info!("Starting die rolling bot...");
     log::info!("Running as: {:#?}", bot.get_me().await?);
@@ -211,7 +255,7 @@ async fn run_bot(args: &cli::RunArgs) -> anyhow::Result<()> {
         .branch(dptree::entry().filter_command::<Command>().endpoint(answer));
 
     Dispatcher::builder(bot, handler)
-        .dependencies(dptree::deps![store])
+        .dependencies(dptree::deps![store, settings])
         .default_handler(|update| async move {
             log::warn!("Unhandled update {:?}", update);
         })

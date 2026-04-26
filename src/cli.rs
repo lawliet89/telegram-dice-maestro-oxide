@@ -47,4 +47,8 @@ pub struct RunArgs {
     /// Path to data storage file
     #[arg(long, env, default_value("storage.db"))]
     pub storage_path: String,
+
+    /// Use a single global RNG shared across all users instead of per-user RNG state
+    #[arg(long, env, default_value_t = false)]
+    pub use_global_rng: bool,
 }
