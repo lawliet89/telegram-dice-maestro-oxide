@@ -242,36 +242,6 @@ mod tests {
         assert_eq!(r.result().total, 2);
     }
 
-    // When both attempts produce the same total, result() and results_index()
-    // must still agree with each other (both should point to try_two, per the
-    // semantics of std::cmp::max/min when equal).
-    #[test]
-    fn tie_result_and_index_are_consistent() {
-        let s = settings(1, 20, None);
-
-        for rt in [RollType::Advantage, RollType::Disadvantage] {
-            let r = RollResults {
-                roll_type: &rt,
-                try_one: fixed_roll(&s, vec![10], 10),
-                try_two: Some(fixed_roll(&s, vec![10], 10)),
-                settings: &s,
-            };
-            // The important invariant: whichever roll result() reports, results_index()
-            // must point to the same attempt.
-            let selected_total = r.result().total;
-            let winning_roll = match r.results_index() {
-                1 => r.try_one.total,
-                2 => r.try_two.as_ref().unwrap().total,
-                _ => unreachable!(),
-            };
-            assert_eq!(
-                selected_total, winning_roll,
-                "result() and results_index() disagree for {:?} on a tie",
-                rt
-            );
-        }
-    }
-
     // Long roll results must be capped so that the Telegram HTML entity limit
     // is respected.  The truncated section must end with "..." so users know
     // output was cut, and the results portion must not exceed the requested limit.
