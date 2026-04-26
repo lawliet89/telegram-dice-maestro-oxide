@@ -39,7 +39,16 @@ where
 }
 
 #[cfg(test)]
+impl User {
+    fn with_rng(rng: StdRng) -> Self {
+        Self { rng_state: rng }
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use rand::RngCore;
+
     use super::*;
 
     // Multiple calls for the same user_id create exactly one entry in the store,
@@ -78,5 +87,32 @@ mod tests {
         let guard = store.lock().await;
         assert_eq!(guard.len(), 1);
         assert!(guard.contains_key(&None));
+    }
+
+    // The same user's RNG state advances with each call: two consecutive rolls
+    // consume consecutive outputs of the same persisted RNG, not independent
+    // fresh RNGs seeded anew on every call.
+    #[tokio::test]
+    async fn same_user_rng_state_advances_across_calls() {
+        let store = new_store();
+        let uid = Some(UserId(99));
+
+        // Pre-seed the user's RNG with a known value so we can predict outputs.
+        store
+            .lock()
+            .await
+            .insert(uid, User::with_rng(StdRng::seed_from_u64(0)));
+
+        // Compute the expected first two outputs from the same seed.
+        let mut reference = StdRng::seed_from_u64(0);
+        let expected1 = reference.next_u64();
+        let expected2 = reference.next_u64();
+
+        // Each call must advance the same shared RNG, not create a fresh one.
+        let actual1 = with_user_rng(&store, uid, |rng| rng.next_u64()).await;
+        let actual2 = with_user_rng(&store, uid, |rng| rng.next_u64()).await;
+
+        assert_eq!(actual1, expected1);
+        assert_eq!(actual2, expected2);
     }
 }
