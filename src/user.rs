@@ -7,8 +7,8 @@ use tokio::sync::Mutex;
 
 use teloxide::types::UserId;
 
-pub struct User {
-    pub rng_state: StdRng,
+pub(crate) struct User {
+    rng_state: StdRng,
 }
 
 impl User {
