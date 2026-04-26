@@ -308,7 +308,7 @@ mod tests {
             label: None,
         };
         let roll = Roll::new(&settings, &mut rng);
-        assert!(roll.rolls.iter().all(|&v| v >= 1 && v <= 20));
+        assert!(roll.rolls.iter().all(|&v| v >= 1 && v <= settings.sides));
     }
 
     #[test]
@@ -321,7 +321,8 @@ mod tests {
             label: None,
         };
         let roll = Roll::new(&settings, &mut rng);
-        let expected: i64 = roll.rolls.iter().map(|&v| v as i64).sum::<i64>() + 5;
+        let expected: i64 = roll.rolls.iter().map(|&v| v as i64).sum::<i64>()
+            + settings.modifier.unwrap_or(0) as i64;
         assert_eq!(roll.total, expected);
     }
 }

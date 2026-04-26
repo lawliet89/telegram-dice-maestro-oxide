@@ -57,9 +57,10 @@ mod tests {
         assert_eq!(store.lock().await.len(), 1);
     }
 
-    // Two distinct user_ids produce two separate map entries.
+    // Two distinct user_ids each create their own entry — the store holds exactly
+    // two entries after both users roll, one per user.
     #[tokio::test]
-    async fn different_users_have_independent_rng() {
+    async fn different_users_create_separate_store_entries() {
         let store = new_store();
         with_user_rng(&store, Some(UserId(1)), |_| {}).await;
         with_user_rng(&store, Some(UserId(2)), |_| {}).await;
