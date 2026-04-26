@@ -30,9 +30,7 @@ where
     F: FnOnce(&mut StdRng) -> T,
 {
     let mut guard = store.lock().await;
-    let user = guard
-        .entry(user_id)
-        .or_insert_with(User::new);
+    let user = guard.entry(user_id).or_insert_with(User::new);
     f(&mut user.rng_state)
 }
 

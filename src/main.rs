@@ -59,7 +59,12 @@ where
 
 type AdaptedBot = DefaultParseMode<Throttle<CacheMe<Bot>>>;
 
-async fn answer(bot: AdaptedBot, msg: Message, cmd: Command, store: UserStore) -> ResponseResult<()> {
+async fn answer(
+    bot: AdaptedBot,
+    msg: Message,
+    cmd: Command,
+    store: UserStore,
+) -> ResponseResult<()> {
     match cmd {
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
@@ -72,16 +77,40 @@ async fn answer(bot: AdaptedBot, msg: Message, cmd: Command, store: UserStore) -
             handle_roll(bot, msg, input.as_str(), &RollType::Straight, true, &store).await?
         }
         Command::Advantage(input) | Command::Adv(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, false, &store).await?
+            handle_roll(
+                bot,
+                msg,
+                input.as_str(),
+                &RollType::Advantage,
+                false,
+                &store,
+            )
+            .await?
         }
         Command::AdvantageData(input) => {
             handle_roll(bot, msg, input.as_str(), &RollType::Advantage, true, &store).await?
         }
         Command::Disadvantage(input) | Command::Dis(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, false, &store).await?
+            handle_roll(
+                bot,
+                msg,
+                input.as_str(),
+                &RollType::Disadvantage,
+                false,
+                &store,
+            )
+            .await?
         }
         Command::DisadvantageData(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, true, &store).await?
+            handle_roll(
+                bot,
+                msg,
+                input.as_str(),
+                &RollType::Disadvantage,
+                true,
+                &store,
+            )
+            .await?
         }
     };
 

@@ -57,9 +57,7 @@ impl<'a> Roll<'a> {
     fn new<R: RngCore>(settings: &'a RollSettings, rng: &mut R) -> Self {
         let die = Uniform::from(1..=settings.sides);
 
-        let rolls: Vec<u32> = (1..=settings.number)
-            .map(|_| die.sample(rng))
-            .collect();
+        let rolls: Vec<u32> = (1..=settings.number).map(|_| die.sample(rng)).collect();
 
         let mut total: i64 = rolls.iter().map(|i| *i as i64).sum();
         if let Some(modifier) = settings.modifier {
@@ -303,7 +301,12 @@ mod tests {
     #[test]
     fn roll_values_in_range() {
         let mut rng = StdRng::seed_from_u64(0);
-        let settings = RollSettings { number: 100, sides: 20, modifier: None, label: None };
+        let settings = RollSettings {
+            number: 100,
+            sides: 20,
+            modifier: None,
+            label: None,
+        };
         let roll = Roll::new(&settings, &mut rng);
         assert!(roll.rolls.iter().all(|&v| v >= 1 && v <= 20));
     }
@@ -311,7 +314,12 @@ mod tests {
     #[test]
     fn total_accounts_for_modifier() {
         let mut rng = StdRng::seed_from_u64(1);
-        let settings = RollSettings { number: 3, sides: 6, modifier: Some(5), label: None };
+        let settings = RollSettings {
+            number: 3,
+            sides: 6,
+            modifier: Some(5),
+            label: None,
+        };
         let roll = Roll::new(&settings, &mut rng);
         let expected: i64 = roll.rolls.iter().map(|&v| v as i64).sum::<i64>() + 5;
         assert_eq!(roll.total, expected);
@@ -345,7 +353,11 @@ pub(crate) struct RollResults<'a> {
 }
 
 impl<'a> RollResults<'a> {
-    pub fn new<R: RngCore>(settings: &'a RollSettings, roll_type: &'a RollType, rng: &mut R) -> Self {
+    pub fn new<R: RngCore>(
+        settings: &'a RollSettings,
+        roll_type: &'a RollType,
+        rng: &mut R,
+    ) -> Self {
         let try_one = Roll::new(settings, rng);
         let try_two = match roll_type {
             RollType::Straight => None,
@@ -433,4 +445,3 @@ impl<'a> std::fmt::Display for RollResults<'a> {
         }
     }
 }
-
