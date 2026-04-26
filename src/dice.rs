@@ -2,6 +2,7 @@ use std::cmp::{max, min, Ordering};
 use std::str::FromStr;
 
 use rand::distributions::{Distribution, Uniform};
+use rand::RngCore;
 use serde::Serialize;
 
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
@@ -53,13 +54,10 @@ pub(crate) struct Roll<'a> {
 }
 
 impl<'a> Roll<'a> {
-    fn new(settings: &'a RollSettings) -> Self {
-        let mut rng = rand::thread_rng();
+    fn new<R: RngCore>(settings: &'a RollSettings, rng: &mut R) -> Self {
         let die = Uniform::from(1..=settings.sides);
 
-        let rolls: Vec<u32> = (1..=settings.number)
-            .map(|_| die.sample(&mut rng))
-            .collect();
+        let rolls: Vec<u32> = (1..=settings.number).map(|_| die.sample(rng)).collect();
 
         let mut total: i64 = rolls.iter().map(|i| *i as i64).sum();
         if let Some(modifier) = settings.modifier {
@@ -124,6 +122,8 @@ impl<'a> PartialOrd for Roll<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     fn settings(number: u32, sides: u32, modifier: Option<i32>) -> RollSettings {
         RollSettings {
@@ -280,12 +280,13 @@ mod tests {
     // Roll::new and holds regardless of the random values rolled.
     #[test]
     fn roll_total_invariant() {
+        let mut rng = StdRng::seed_from_u64(42);
         let with_mod = settings(4, 6, Some(5));
         let no_mod = settings(3, 8, None);
         let neg_mod = settings(2, 10, Some(-3));
 
         for s in [&with_mod, &no_mod, &neg_mod] {
-            let roll = Roll::new(s);
+            let roll = Roll::new(s, &mut rng);
             let dice_sum: i64 = roll.rolls.iter().map(|&d| d as i64).sum();
             let modifier = s.modifier.unwrap_or(0) as i64;
             assert_eq!(
@@ -295,6 +296,34 @@ mod tests {
                 s
             );
         }
+    }
+
+    #[test]
+    fn roll_values_in_range() {
+        let mut rng = StdRng::seed_from_u64(0);
+        let settings = RollSettings {
+            number: 100,
+            sides: 20,
+            modifier: None,
+            label: None,
+        };
+        let roll = Roll::new(&settings, &mut rng);
+        assert!(roll.rolls.iter().all(|&v| v >= 1 && v <= settings.sides));
+    }
+
+    #[test]
+    fn total_accounts_for_modifier() {
+        let mut rng = StdRng::seed_from_u64(1);
+        let settings = RollSettings {
+            number: 3,
+            sides: 6,
+            modifier: Some(5),
+            label: None,
+        };
+        let roll = Roll::new(&settings, &mut rng);
+        let expected: i64 = roll.rolls.iter().map(|&v| v as i64).sum::<i64>()
+            + settings.modifier.unwrap_or(0) as i64;
+        assert_eq!(roll.total, expected);
     }
 }
 
@@ -325,11 +354,15 @@ pub(crate) struct RollResults<'a> {
 }
 
 impl<'a> RollResults<'a> {
-    pub fn new(settings: &'a RollSettings, roll_type: &'a RollType) -> Self {
-        let try_one = Roll::new(settings);
+    pub fn new<R: RngCore>(
+        settings: &'a RollSettings,
+        roll_type: &'a RollType,
+        rng: &mut R,
+    ) -> Self {
+        let try_one = Roll::new(settings, rng);
         let try_two = match roll_type {
             RollType::Straight => None,
-            RollType::Advantage | RollType::Disadvantage => Some(Roll::new(settings)),
+            RollType::Advantage | RollType::Disadvantage => Some(Roll::new(settings, rng)),
         };
 
         RollResults {

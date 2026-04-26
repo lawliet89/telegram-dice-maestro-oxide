@@ -47,4 +47,8 @@ pub struct RunArgs {
     /// Path to data storage file
     #[arg(long, env, default_value("storage.db"))]
     pub storage_path: String,
+
+    /// Use Tokio's thread-local `thread_rng` instead of persisted per-user RNG state
+    #[arg(long, env, default_value_t = false)]
+    pub use_thread_rng: bool,
 }
