@@ -2,6 +2,7 @@ mod cli;
 mod dice;
 mod dnd;
 mod parser;
+mod user;
 
 use std::str::FromStr;
 
@@ -14,6 +15,7 @@ use teloxide::types::{InputFile, ParseMode, ReplyParameters};
 use teloxide::utils::command::BotCommands;
 
 use dice::*;
+use user::UserStore;
 
 #[derive(BotCommands, Clone, PartialEq)]
 #[command(
@@ -57,29 +59,29 @@ where
 
 type AdaptedBot = DefaultParseMode<Throttle<CacheMe<Bot>>>;
 
-async fn answer(bot: AdaptedBot, msg: Message, cmd: Command) -> ResponseResult<()> {
+async fn answer(bot: AdaptedBot, msg: Message, cmd: Command, store: UserStore) -> ResponseResult<()> {
     match cmd {
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?;
         }
         Command::Roll(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Straight, false).await?
+            handle_roll(bot, msg, input.as_str(), &RollType::Straight, false, &store).await?
         }
         Command::Data(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Straight, true).await?
+            handle_roll(bot, msg, input.as_str(), &RollType::Straight, true, &store).await?
         }
         Command::Advantage(input) | Command::Adv(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, false).await?
+            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, false, &store).await?
         }
         Command::AdvantageData(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, true).await?
+            handle_roll(bot, msg, input.as_str(), &RollType::Advantage, true, &store).await?
         }
         Command::Disadvantage(input) | Command::Dis(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, false).await?
+            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, false, &store).await?
         }
         Command::DisadvantageData(input) => {
-            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, true).await?
+            handle_roll(bot, msg, input.as_str(), &RollType::Disadvantage, true, &store).await?
         }
     };
 
@@ -92,6 +94,7 @@ async fn handle_roll(
     input: &str,
     roll_type: &RollType,
     send_json: bool,
+    store: &UserStore,
 ) -> ResponseResult<()> {
     let silly_text =  "As a non-language non-model, I just spit out what was written in my code and I can never vary.";
     match input {
@@ -109,7 +112,11 @@ async fn handle_roll(
             let settings = RollSettings::from_str(input);
             match settings {
                 Ok(settings) => {
-                    let results = RollResults::new(&settings, roll_type);
+                    let user_id = msg.from.as_ref().map(|u| u.id);
+                    let results = user::with_user_rng(store, user_id, |rng| {
+                        RollResults::new(&settings, roll_type, rng)
+                    })
+                    .await;
                     log::debug!("Dice roll: {:?}", results);
                     let roll_msg = bot
                         .send_message(msg.chat.id, results.to_string())
@@ -160,6 +167,8 @@ async fn run_bot(args: &cli::RunArgs) -> anyhow::Result<()> {
         .throttle(Default::default())
         .parse_mode(ParseMode::Html);
 
+    let store = user::new_store();
+
     log::info!("Starting die rolling bot...");
     log::info!("Running as: {:#?}", bot.get_me().await?);
 
@@ -173,6 +182,7 @@ async fn run_bot(args: &cli::RunArgs) -> anyhow::Result<()> {
         .branch(dptree::entry().filter_command::<Command>().endpoint(answer));
 
     Dispatcher::builder(bot, handler)
+        .dependencies(dptree::deps![store])
         .default_handler(|update| async move {
             log::warn!("Unhandled update {:?}", update);
         })
