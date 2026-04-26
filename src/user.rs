@@ -19,13 +19,13 @@ impl User {
     }
 }
 
-pub type UserStore = Arc<Mutex<HashMap<Option<UserId>, User>>>;
+pub(crate) type UserStore = Arc<Mutex<HashMap<Option<UserId>, User>>>;
 
-pub fn new_store() -> UserStore {
+pub(crate) fn new_store() -> UserStore {
     Arc::new(Mutex::new(HashMap::new()))
 }
 
-pub async fn with_user_rng<F, T>(store: &UserStore, user_id: Option<UserId>, f: F) -> T
+pub(crate) async fn with_user_rng<F, T>(store: &UserStore, user_id: Option<UserId>, f: F) -> T
 where
     F: FnOnce(&mut StdRng) -> T,
 {
