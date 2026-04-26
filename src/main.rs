@@ -15,7 +15,7 @@ use teloxide::types::{InputFile, ParseMode, ReplyParameters};
 use teloxide::utils::command::BotCommands;
 
 use dice::*;
-use user::{RngKey, UserStore};
+use user::UserStore;
 
 #[derive(BotCommands, Clone, PartialEq)]
 #[command(
@@ -181,11 +181,11 @@ async fn handle_roll(
                     let results = if bot_settings.use_thread_rng {
                         RollResults::new(&settings, roll_type, &mut rand::thread_rng())
                     } else {
-                        let key = rng_key(&msg);
-                        user::with_user_rng(store, key, |rng| {
-                            RollResults::new(&settings, roll_type, rng)
-                        })
-                        .await
+                        store
+                            .with_message_rng(&msg, |rng| {
+                                RollResults::new(&settings, roll_type, rng)
+                            })
+                            .await
                     };
                     log::debug!("Dice roll: {:?}", results);
                     let roll_msg = bot
@@ -229,13 +229,6 @@ async fn handle_roll(
     Ok(())
 }
 
-fn rng_key(msg: &Message) -> RngKey {
-    match msg.from.as_ref().map(|u| u.id) {
-        Some(user_id) => RngKey::User(user_id),
-        None => RngKey::Chat(msg.chat.id),
-    }
-}
-
 async fn run_bot(args: &cli::RunArgs) -> anyhow::Result<()> {
     log::info!("Reading token...");
     let token = get_token(args.bot_token.as_ref(), args.bot_token_file.as_ref())?;
@@ -244,7 +237,7 @@ async fn run_bot(args: &cli::RunArgs) -> anyhow::Result<()> {
         .throttle(Default::default())
         .parse_mode(ParseMode::Html);
 
-    let store = user::new_store();
+    let store = UserStore::new();
     let settings = BotSettings {
         use_thread_rng: args.use_thread_rng,
     };
