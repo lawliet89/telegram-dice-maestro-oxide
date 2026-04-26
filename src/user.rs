@@ -30,7 +30,13 @@ where
     F: FnOnce(&mut StdRng) -> T,
 {
     let mut guard = store.lock().await;
+    let occupied = guard.contains_key(&user_id);
     let user = guard.entry(user_id).or_insert_with(User::new);
+    if occupied {
+        log::info!("Fetched RNG state for user {:?}", user_id);
+    } else {
+        log::info!("Created RNG state for user {:?}", user_id);
+    }
     f(&mut user.rng_state)
 }
 
