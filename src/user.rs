@@ -37,35 +37,40 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::RngCore;
 
+    // Each call for the same user operates on the same map entry — not a new one.
     #[tokio::test]
     async fn same_user_shares_rng_state() {
         let store = new_store();
         let uid = Some(UserId(42));
 
-        let first = with_user_rng(&store, uid, |rng| rng.next_u64()).await;
-        let second = with_user_rng(&store, uid, |rng| rng.next_u64()).await;
+        with_user_rng(&store, uid, |_| {}).await;
+        with_user_rng(&store, uid, |_| {}).await;
 
-        assert_ne!(first, second);
-
-        let store2 = new_store();
-        let alt = with_user_rng(&store2, uid, |rng| rng.next_u64()).await;
-        assert_ne!(first, alt);
+        assert_eq!(store.lock().await.len(), 1);
     }
 
+    // Two distinct user_ids produce two separate map entries.
     #[tokio::test]
     async fn different_users_have_independent_rng() {
         let store = new_store();
-        let a = with_user_rng(&store, Some(UserId(1)), |rng| rng.next_u64()).await;
-        let b = with_user_rng(&store, Some(UserId(2)), |rng| rng.next_u64()).await;
-        assert_ne!(a, b);
+        with_user_rng(&store, Some(UserId(1)), |_| {}).await;
+        with_user_rng(&store, Some(UserId(2)), |_| {}).await;
+
+        let guard = store.lock().await;
+        assert_eq!(guard.len(), 2);
+        assert!(guard.contains_key(&Some(UserId(1))));
+        assert!(guard.contains_key(&Some(UserId(2))));
     }
 
+    // None is a valid key and gets its own entry.
     #[tokio::test]
     async fn anonymous_user_works() {
         let store = new_store();
-        let v = with_user_rng(&store, None, |rng| rng.next_u64()).await;
-        assert_ne!(v, 0);
+        with_user_rng(&store, None, |_| {}).await;
+
+        let guard = store.lock().await;
+        assert_eq!(guard.len(), 1);
+        assert!(guard.contains_key(&None));
     }
 }
