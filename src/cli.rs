@@ -48,7 +48,7 @@ pub struct RunArgs {
     #[arg(long, env, default_value("storage.db"))]
     pub storage_path: String,
 
-    /// Use a single global RNG shared across all users instead of per-user RNG state
+    /// Use Tokio's thread-local `thread_rng` instead of persisted per-user RNG state
     #[arg(long, env, default_value_t = false)]
-    pub use_global_rng: bool,
+    pub use_thread_rng: bool,
 }

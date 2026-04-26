@@ -6,10 +6,16 @@ use rand::rngs::{OsRng, StdRng};
 use rand::SeedableRng;
 use tokio::sync::Mutex;
 
-use teloxide::types::UserId;
+use teloxide::types::{ChatId, UserId};
 
 pub(crate) struct User {
     rng_state: StdRng,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum RngKey {
+    User(UserId),
+    Chat(ChatId),
 }
 
 impl User {
@@ -20,21 +26,21 @@ impl User {
     }
 }
 
-pub(crate) type UserStore = Arc<Mutex<HashMap<Option<UserId>, User>>>;
+pub(crate) type UserStore = Arc<Mutex<HashMap<RngKey, User>>>;
 
 pub(crate) fn new_store() -> UserStore {
     Arc::new(Mutex::new(HashMap::new()))
 }
 
-pub(crate) async fn with_user_rng<F, T>(store: &UserStore, user_id: Option<UserId>, f: F) -> T
+pub(crate) async fn with_user_rng<F, T>(store: &UserStore, key: RngKey, f: F) -> T
 where
     F: FnOnce(&mut StdRng) -> T,
 {
     let mut guard = store.lock().await;
-    let user = match guard.entry(user_id) {
+    let user = match guard.entry(key) {
         Entry::Occupied(e) => e.into_mut(),
         Entry::Vacant(e) => {
-            log::info!("Created RNG state for user {:?}", user_id);
+            log::info!("Created RNG state for {:?}", key);
             e.insert(User::new())
         }
     };
@@ -59,7 +65,7 @@ mod tests {
     #[tokio::test]
     async fn same_user_creates_single_store_entry() {
         let store = new_store();
-        let uid = Some(UserId(42));
+        let uid = RngKey::User(UserId(42));
 
         with_user_rng(&store, uid, |_| {}).await;
         with_user_rng(&store, uid, |_| {}).await;
@@ -72,24 +78,36 @@ mod tests {
     #[tokio::test]
     async fn different_users_create_separate_store_entries() {
         let store = new_store();
-        with_user_rng(&store, Some(UserId(1)), |_| {}).await;
-        with_user_rng(&store, Some(UserId(2)), |_| {}).await;
+        with_user_rng(&store, RngKey::User(UserId(1)), |_| {}).await;
+        with_user_rng(&store, RngKey::User(UserId(2)), |_| {}).await;
 
         let guard = store.lock().await;
         assert_eq!(guard.len(), 2);
-        assert!(guard.contains_key(&Some(UserId(1))));
-        assert!(guard.contains_key(&Some(UserId(2))));
+        assert!(guard.contains_key(&RngKey::User(UserId(1))));
+        assert!(guard.contains_key(&RngKey::User(UserId(2))));
     }
 
-    // None is a valid key and gets its own entry.
+    // Messages without a sender fall back to chat identity.
     #[tokio::test]
-    async fn anonymous_user_works() {
+    async fn chat_fallback_works() {
         let store = new_store();
-        with_user_rng(&store, None, |_| {}).await;
+        with_user_rng(&store, RngKey::Chat(ChatId(7)), |_| {}).await;
 
         let guard = store.lock().await;
         assert_eq!(guard.len(), 1);
-        assert!(guard.contains_key(&None));
+        assert!(guard.contains_key(&RngKey::Chat(ChatId(7))));
+    }
+
+    #[tokio::test]
+    async fn different_fallback_chats_create_separate_store_entries() {
+        let store = new_store();
+        with_user_rng(&store, RngKey::Chat(ChatId(1)), |_| {}).await;
+        with_user_rng(&store, RngKey::Chat(ChatId(2)), |_| {}).await;
+
+        let guard = store.lock().await;
+        assert_eq!(guard.len(), 2);
+        assert!(guard.contains_key(&RngKey::Chat(ChatId(1))));
+        assert!(guard.contains_key(&RngKey::Chat(ChatId(2))));
     }
 
     // The same user's RNG state advances with each call: two consecutive rolls
@@ -98,7 +116,7 @@ mod tests {
     #[tokio::test]
     async fn same_user_rng_state_advances_across_calls() {
         let store = new_store();
-        let uid = Some(UserId(99));
+        let uid = RngKey::User(UserId(99));
 
         // Pre-seed the user's RNG with a known value so we can predict outputs.
         store
