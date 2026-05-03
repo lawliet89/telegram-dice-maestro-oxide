@@ -179,7 +179,7 @@ async fn handle_roll(
             match settings {
                 Ok(settings) => {
                     let results = if bot_settings.use_thread_rng {
-                        RollResults::new(&settings, roll_type, &mut rand::thread_rng())
+                        RollResults::new(&settings, roll_type, &mut rand::rng())
                     } else {
                         store
                             .with_message_rng(&msg, |rng| {

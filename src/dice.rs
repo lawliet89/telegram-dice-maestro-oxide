@@ -1,8 +1,8 @@
 use std::cmp::{max, min, Ordering};
 use std::str::FromStr;
 
-use rand::distributions::{Distribution, Uniform};
-use rand::RngCore;
+use rand::distr::{Distribution, Uniform};
+use rand::Rng;
 use serde::Serialize;
 
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
@@ -54,8 +54,8 @@ pub(crate) struct Roll<'a> {
 }
 
 impl<'a> Roll<'a> {
-    fn new<R: RngCore>(settings: &'a RollSettings, rng: &mut R) -> Self {
-        let die = Uniform::from(1..=settings.sides);
+    fn new<R: Rng>(settings: &'a RollSettings, rng: &mut R) -> Self {
+        let die = Uniform::new_inclusive(1, settings.sides).expect("sides must be >= 1");
 
         let rolls: Vec<u32> = (1..=settings.number).map(|_| die.sample(rng)).collect();
 
@@ -354,11 +354,7 @@ pub(crate) struct RollResults<'a> {
 }
 
 impl<'a> RollResults<'a> {
-    pub fn new<R: RngCore>(
-        settings: &'a RollSettings,
-        roll_type: &'a RollType,
-        rng: &mut R,
-    ) -> Self {
+    pub fn new<R: Rng>(settings: &'a RollSettings, roll_type: &'a RollType, rng: &mut R) -> Self {
         let try_one = Roll::new(settings, rng);
         let try_two = match roll_type {
             RollType::Straight => None,

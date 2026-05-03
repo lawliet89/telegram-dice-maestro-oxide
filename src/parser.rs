@@ -7,8 +7,7 @@ use nom::{
     error::ParseError,
     multi::{many1, many_m_n},
     sequence::delimited,
-    sequence::Tuple,
-    Finish, IResult,
+    Finish, IResult, Parser,
 };
 use thiserror::Error;
 
@@ -17,15 +16,15 @@ use crate::dice::RollSettings;
 /// A combinator that takes a parser `inner` and produces a parser that also consumes both leading and
 /// trailing whitespace, returning the output of `inner`.
 /// https://docs.rs/nom/latest/nom/recipes/index.html#wrapper-combinators-that-eat-whitespace-before-and-after-a-parser
-fn ws<'a, F, O, E: ParseError<&'a str>>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+fn ws<'a, F, O, E: ParseError<&'a str>>(inner: F) -> impl Parser<&'a str, Output = O, Error = E>
 where
-    F: 'a + FnMut(&'a str) -> IResult<&'a str, O, E>,
+    F: 'a + Parser<&'a str, Output = O, Error = E>,
 {
     delimited(multispace0, inner, multispace0)
 }
 
 fn single_decimal(input: &str) -> IResult<&str, char> {
-    ws(one_of("0123456789"))(input)
+    ws(one_of("0123456789")).parse(input)
 }
 
 fn decimal<T>(input: &str, min: usize, max: usize) -> IResult<&str, T>
@@ -33,18 +32,18 @@ where
     T: FromStr,
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
-    let (remainning, (_, chars)) = consumed(many_m_n(min, max, single_decimal))(input)?;
+    let (remaining, (_, chars)) = consumed(many_m_n(min, max, single_decimal)).parse(input)?;
     let output = String::from_iter(chars);
-    Ok((remainning, output.parse().expect("parsing to succeed")))
+    Ok((remaining, output.parse().expect("parsing to succeed")))
 }
 
 fn dice_seperator(input: &str) -> IResult<&str, char> {
-    let (remaining, (_, separator)) = ws(consumed(one_of("dD")))(input)?;
+    let (remaining, (_, separator)) = ws(consumed(one_of("dD"))).parse(input)?;
     Ok((remaining, separator))
 }
 
 fn modifier_separator(input: &str) -> IResult<&str, char> {
-    let (remaining, (_, separator)) = ws(consumed(one_of("+-")))(input)?;
+    let (remaining, (_, separator)) = ws(consumed(one_of("+-"))).parse(input)?;
     Ok((remaining, separator))
 }
 
@@ -109,7 +108,10 @@ pub(crate) fn parse_roll(input: &str) -> Result<RollSettings, ParseRollError> {
     }
 
     // Check remaining text is not "overflow" digits
-    if consumed(consumed(many1(single_decimal)))(remaining).is_ok() {
+    if consumed(consumed(many1(single_decimal)))
+        .parse(remaining)
+        .is_ok()
+    {
         Err(ParseRollError::TooBig)?;
     }
 
