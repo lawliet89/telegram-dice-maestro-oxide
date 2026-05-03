@@ -32,9 +32,9 @@ where
     T: FromStr,
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
-    let (remainning, (_, chars)) = consumed(many_m_n(min, max, single_decimal)).parse(input)?;
+    let (remaining, (_, chars)) = consumed(many_m_n(min, max, single_decimal)).parse(input)?;
     let output = String::from_iter(chars);
-    Ok((remainning, output.parse().expect("parsing to succeed")))
+    Ok((remaining, output.parse().expect("parsing to succeed")))
 }
 
 fn dice_seperator(input: &str) -> IResult<&str, char> {

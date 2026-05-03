@@ -21,7 +21,8 @@ pub(crate) enum RngKey {
 impl User {
     fn new() -> Self {
         Self {
-            rng_state: StdRng::try_from_rng(&mut SysRng).expect("SysRng infallible"),
+            rng_state: StdRng::try_from_rng(&mut SysRng)
+                .unwrap_or_else(|err| panic!("failed to initialize StdRng from SysRng: {err}")),
         }
     }
 }
