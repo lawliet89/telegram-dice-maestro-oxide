@@ -55,7 +55,7 @@ pub(crate) struct Roll<'a> {
 
 impl<'a> Roll<'a> {
     fn new<R: Rng>(settings: &'a RollSettings, rng: &mut R) -> Self {
-        let die = Uniform::new_inclusive(1, settings.sides).unwrap();
+        let die = Uniform::new_inclusive(1, settings.sides).expect("sides must be >= 1");
 
         let rolls: Vec<u32> = (1..=settings.number).map(|_| die.sample(rng)).collect();
 
