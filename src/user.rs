@@ -2,7 +2,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use rand::rngs::{OsRng, StdRng};
+use rand::rngs::{SysRng, StdRng};
 use rand::SeedableRng;
 use tokio::sync::Mutex;
 
@@ -21,7 +21,7 @@ pub(crate) enum RngKey {
 impl User {
     fn new() -> Self {
         Self {
-            rng_state: StdRng::from_rng(OsRng).expect("OsRng infallible"),
+            rng_state: StdRng::try_from_rng(&mut SysRng).expect("SysRng infallible"),
         }
     }
 }
@@ -97,7 +97,7 @@ impl User {
 
 #[cfg(test)]
 mod tests {
-    use rand::RngCore;
+    use rand::Rng;
 
     use super::*;
 
