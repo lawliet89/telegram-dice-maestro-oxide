@@ -108,7 +108,10 @@ pub(crate) fn parse_roll(input: &str) -> Result<RollSettings, ParseRollError> {
     }
 
     // Check remaining text is not "overflow" digits
-    if consumed(consumed(many1(single_decimal))).parse(remaining).is_ok() {
+    if consumed(consumed(many1(single_decimal)))
+        .parse(remaining)
+        .is_ok()
+    {
         Err(ParseRollError::TooBig)?;
     }
 

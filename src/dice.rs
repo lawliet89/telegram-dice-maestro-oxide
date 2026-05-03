@@ -354,11 +354,7 @@ pub(crate) struct RollResults<'a> {
 }
 
 impl<'a> RollResults<'a> {
-    pub fn new<R: Rng>(
-        settings: &'a RollSettings,
-        roll_type: &'a RollType,
-        rng: &mut R,
-    ) -> Self {
+    pub fn new<R: Rng>(settings: &'a RollSettings, roll_type: &'a RollType, rng: &mut R) -> Self {
         let try_one = Roll::new(settings, rng);
         let try_two = match roll_type {
             RollType::Straight => None,
